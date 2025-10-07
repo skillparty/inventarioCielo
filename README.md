@@ -4,13 +4,30 @@ Sistema de gestión de inventario de activos desarrollado con Electron, React, E
 
 ## 🚀 Características
 
-- ✅ Gestión completa de activos (CRUD)
-- 📱 Generación automática de códigos QR
-- 📷 Escaneo de códigos QR con cámara
-- 💾 Base de datos PostgreSQL local
-- 🖥️ Aplicación desktop multiplataforma (Windows, macOS, Linux)
-- 🎨 Interfaz moderna y responsiva
-- 📊 Dashboard con estadísticas en tiempo real
+### Gestión de Activos
+- ✅ **CRUD completo** - Crear, leer, actualizar y eliminar activos
+- 🔍 **Búsqueda en tiempo real** - Búsqueda instantánea con debounce
+- 🎯 **Búsqueda avanzada** - Filtros por ubicación, responsable, fecha y más
+- 📄 **Paginación inteligente** - Manejo eficiente de grandes volúmenes
+
+### Códigos QR
+- 📱 **Generación automática** - QR único para cada activo (AST-YYYY-####)
+- 📷 **Escaneo con cámara** - Soporte para múltiples cámaras
+- 🖼️ **Escaneo desde imagen** - Subir foto o seleccionar desde galería
+- 💾 **Almacenamiento local** - QR guardados como PNG (300x300)
+
+### Dashboard y Reportes
+- 📊 **Dashboard interactivo** - Estadísticas en tiempo real
+- 📈 **Gráficos visuales** - Activos por ubicación y responsable
+- 📥 **Exportación CSV** - Descarga completa del inventario
+- 🏷️ **Impresión de etiquetas** - 3 formatos para etiquetas adhesivas
+- 💾 **Backup de BD** - Respaldos manuales con pg_dump
+
+### Aplicación Desktop
+- 🖥️ **Multiplataforma** - Windows, macOS, Linux
+- ⚡ **Servidor integrado** - Express inicia automáticamente
+- 🎨 **Interfaz moderna** - React con CSS Modules
+- 📱 **Diseño responsivo** - Adaptado a cualquier pantalla
 
 ## 🛠️ Stack Tecnológico
 
@@ -204,20 +221,28 @@ inventarioCielo/
 
 ## 🌐 API Endpoints
 
-### Activos
+### Gestión de Activos
 
-- `GET /api/activos` - Obtener todos los activos
-- `GET /api/activos/:id` - Obtener activo por ID
-- `GET /api/activos/qr/:codigo_qr` - Buscar activo por código QR
-- `POST /api/activos` - Crear nuevo activo
-- `PUT /api/activos/:id` - Actualizar activo
-- `DELETE /api/activos/:id` - Eliminar activo
-- `GET /api/activos/:id/qr` - Generar código QR de un activo
+- `GET /api/assets` - Listar activos (con paginación)
+- `GET /api/assets/:id` - Obtener activo por ID interno
+- `GET /api/assets/qr/:assetId` - Buscar activo por asset_id (AST-YYYY-####)
+- `GET /api/assets/search?q=term` - Búsqueda simple por término
+- `POST /api/assets/search/advanced` - Búsqueda avanzada con filtros
+- `POST /api/assets` - Crear nuevo activo
+- `PUT /api/assets/:id` - Actualizar activo
+- `DELETE /api/assets/:id` - Eliminar activo
+- `POST /api/assets/:id/generate-qr` - Generar/regenerar código QR
+
+### Estadísticas y Reportes
+
+- `GET /api/assets/stats/dashboard` - Estadísticas para dashboard
+- `GET /api/assets/export/csv` - Exportar inventario a CSV
 
 ### Sistema
 
 - `GET /api/health` - Estado del backend
 - `GET /api/db-test` - Probar conexión a base de datos
+- `POST /api/db-backup` - Crear backup de la base de datos
 
 ### Ejemplo de uso con curl:
 
@@ -225,22 +250,31 @@ inventarioCielo/
 # Health check
 curl http://localhost:5000/api/health
 
-# Obtener todos los activos
-curl http://localhost:5000/api/activos
+# Obtener todos los activos (paginados)
+curl http://localhost:5000/api/assets?page=1&limit=10
 
 # Crear nuevo activo
-curl -X POST http://localhost:5000/api/activos \
+curl -X POST http://localhost:5000/api/assets \
   -H "Content-Type: application/json" \
   -d '{
-    "nombre": "Laptop HP",
-    "descripcion": "Laptop empresarial",
-    "categoria": "Equipos de Cómputo",
-    "ubicacion": "Oficina Principal",
-    "estado": "Activo",
-    "numero_serie": "HP-001",
-    "valor": 15000,
-    "responsable": "Juan Pérez"
+    "description": "Laptop HP Empresarial",
+    "responsible": "Juan Pérez",
+    "location": "Oficina Principal"
   }'
+
+# Exportar a CSV
+curl http://localhost:5000/api/assets/export/csv -o inventario.csv
+
+# Obtener estadísticas
+curl http://localhost:5000/api/assets/stats/dashboard
+
+# Crear backup
+curl -X POST http://localhost:5000/api/db-backup
+
+# Búsqueda avanzada
+curl -X POST http://localhost:5000/api/assets/search/advanced \
+  -H "Content-Type: application/json" \
+  -d '{"location":"Oficina","responsible":"Juan"}'
 ```
 
 ## 🗃️ Base de Datos
@@ -331,25 +365,47 @@ xattr -cr dist/mac/Inventario\ Cielo.app
 
 ## 📝 Scripts Disponibles
 
+### Desarrollo
 | Script | Descripción |
 |--------|-------------|
 | `npm start` | Inicia todo (backend + frontend + electron) |
+| `npm run dev` | Alias de npm start |
 | `npm run start:backend` | Solo backend Express |
 | `npm run start:frontend` | Solo frontend React |
 | `npm run start:electron` | Solo Electron |
+
+### Produccion y Build
+| Script | Descripción |
+|--------|-------------|
 | `npm run build` | Build React para producción |
-| `npm run build:electron` | Build app Electron |
+| `npm run build:electron` | Build completo con instalador |
+| `npm run build:win` | Instalador Windows (.exe) |
+| `npm run build:mac` | Instalador macOS (.dmg) |
+| `npm run build:linux` | Instalador Linux (.AppImage, .deb, .rpm) |
+| `npm run pack` | Build sin comprimir (testing) |
+| `npm run dist` | Build para todas las plataformas |
 
-## 🎯 Próximas Mejoras
+## 🎯 Funcionalidades Completadas ✅
 
-- [ ] Autenticación de usuarios
-- [ ] Exportar reportes a PDF/Excel
-- [ ] Historial de movimientos de activos
-- [ ] Notificaciones de mantenimiento
-- [ ] Integración con impresora de etiquetas
+- ✅ Dashboard con gráficas en tiempo real
+- ✅ Exportar inventario a CSV
+- ✅ Impresión de etiquetas (3 formatos)
+- ✅ Búsqueda avanzada con filtros
+- ✅ Backup manual de base de datos
+- ✅ Escaneo QR con cámara e imagen
+- ✅ Generación automática de QR codes
+- ✅ Aplicación desktop con Electron
+
+## 🎯 Próximas Mejoras Sugeridas
+
+- [ ] Autenticación de usuarios y roles
+- [ ] Exportar reportes a PDF
+- [ ] Historial de cambios en activos
+- [ ] Notificaciones de mantenimiento programadas
 - [ ] Modo offline con sincronización
-- [ ] Dashboard con gráficas avanzadas
 - [ ] Importación masiva desde CSV
+- [ ] Integración con impresoras térmicas
+- [ ] Auto-actualización de la aplicación
 
 ## 👥 Contribuir
 

@@ -8,9 +8,24 @@
     "start:backend": "node src/backend/server.js",
     "start:frontend": "react-scripts start",
     "start:electron": "electron .",
+    "dev": "npm start",
     "build": "react-scripts build",
     "build:electron": "npm run build && electron-builder",
-    "test": "react-scripts test",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:backend": "jest --testPathPattern=backend",
+    "test:frontend": "jest --testPathPattern=frontend",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:unit": "jest --testPathPattern=unit",
+    "db:reset": "node scripts/reset-database.js",
+    "db:seed": "node scripts/seed-database.js",
+    "db:migrate": "node scripts/migrate-database.js",
     "eject": "react-scripts eject"
   },
   "keywords": [
@@ -38,11 +53,22 @@
     "electron-builder": "^24.6.4",
     "electron-is-dev": "^2.0.0",
     "concurrently": "^8.2.2",
-    "wait-on": "^7.2.0"
+    "wait-on": "^7.2.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/user-event": "^14.4.3",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "supertest": "^6.3.3",
+    "@babel/preset-env": "^7.23.2",
+    "@babel/preset-react": "^7.22.15",
+    "identity-obj-proxy": "^3.0.0",
+    "babel-jest": "^29.7.0"
   },
   "build": {
     "appId": "com.inventariocielo.app",
     "productName": "Inventario Cielo",
+    "copyright": "Copyright © 2025 Inventario Cielo",
     "directories": {
       "buildResources": "public",
       "output": "dist"
@@ -50,21 +76,109 @@
     "files": [
       "build/**/*",
       "electron.js",
+      "preload.js",
       "src/backend/**/*",
-      "node_modules/**/*"
+      "package.json",
+      "!node_modules/**/*",
+      "node_modules/express/**/*",
+      "node_modules/cors/**/*",
+      "node_modules/pg/**/*",
+      "node_modules/qrcode/**/*",
+      "node_modules/dotenv/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public/qr_codes",
+        "to": "qr_codes",
+        "filter": ["**/*"]
+      }
     ],
     "mac": {
-      "target": "dmg",
-      "icon": "public/icon.png"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.business",
+      "icon": "public/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "Inventario Cielo ${version}",
+      "icon": "public/icon.icns",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/icon.png"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "publisherName": "Inventario Cielo",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Inventario Cielo",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "license": "LICENSE",
+      "language": "2058",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "installerSidebar": "public/installer-sidebar.bmp",
+      "uninstallerSidebar": "public/installer-sidebar.bmp"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/icon.png"
-    }
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Office",
+      "icon": "public/icons",
+      "synopsis": "Sistema de gestion de inventario",
+      "description": "Aplicacion desktop para gestion completa de inventario de activos con generacion de codigos QR"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "deb": {
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1"]
+    },
+    "publish": null
   },
   "browserslist": {
     "production": [
@@ -77,5 +191,40 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "roots": ["<rootDir>/src", "<rootDir>/tests"],
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/?(*.)+(spec|test).js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx}",
+      "!src/index.js",
+      "!src/frontend/index.js",
+      "!src/**/*.test.js",
+      "!src/**/*.spec.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    },
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+    },
+    "transform": {
+      "^.+\\.(js|jsx)$": ["babel-jest", {
+        "presets": [
+          ["@babel/preset-env", { "targets": { "node": "current" } }],
+          ["@babel/preset-react", { "runtime": "automatic" }]
+        ]
+      }]
+    }
   }
 }

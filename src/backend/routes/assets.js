@@ -327,4 +327,173 @@ router.post('/:id/generate-qr', validateNumericId, asyncHandler(async (req, res)
   });
 }));
 
+/**
+ * GET /api/assets/export/csv
+ * Exportar todos los activos a formato CSV
+ */
+router.get('/export/csv', asyncHandler(async (req, res) => {
+  dbLogger.logQuery('EXPORT CSV', 'assets', 'all');
+
+  const result = await db.query(
+    'SELECT id, asset_id, description, responsible, location, created_at, updated_at FROM assets ORDER BY created_at DESC'
+  );
+
+  // Crear CSV manualmente
+  const headers = ['ID', 'Asset ID', 'Descripcion', 'Responsable', 'Ubicacion', 'Fecha Creacion', 'Fecha Actualizacion'];
+  const csvRows = [headers.join(',')];
+
+  result.rows.forEach(row => {
+    const values = [
+      row.id,
+      row.asset_id,
+      `"${(row.description || '').replace(/"/g, '""')}"`, // Escapar comillas
+      `"${(row.responsible || '').replace(/"/g, '""')}"`,
+      `"${(row.location || '').replace(/"/g, '""')}"`,
+      new Date(row.created_at).toLocaleString('es-ES'),
+      new Date(row.updated_at).toLocaleString('es-ES')
+    ];
+    csvRows.push(values.join(','));
+  });
+
+  const csvContent = csvRows.join('\n');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  const filename = `inventario_${timestamp}.csv`;
+
+  dbLogger.logSuccess('EXPORT CSV', { rowCount: result.rows.length });
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Length', Buffer.byteLength(csvContent, 'utf8'));
+  
+  // Agregar BOM para Excel UTF-8
+  res.write('\uFEFF');
+  res.end(csvContent);
+}));
+
+/**
+ * GET /api/assets/stats/dashboard
+ * Obtener estadísticas para el dashboard
+ */
+router.get('/stats/dashboard', asyncHandler(async (req, res) => {
+  dbLogger.logQuery('STATS', 'assets', 'dashboard');
+
+  // Total de activos
+  const totalResult = await db.query('SELECT COUNT(*) as count FROM assets');
+  const total = parseInt(totalResult.rows[0].count);
+
+  // Activos por ubicación
+  const locationResult = await db.query(
+    `SELECT location, COUNT(*) as count 
+     FROM assets 
+     WHERE location IS NOT NULL AND location != ''
+     GROUP BY location 
+     ORDER BY count DESC 
+     LIMIT 10`
+  );
+
+  // Activos por responsable (top 5)
+  const responsibleResult = await db.query(
+    `SELECT responsible, COUNT(*) as count 
+     FROM assets 
+     WHERE responsible IS NOT NULL AND responsible != ''
+     GROUP BY responsible 
+     ORDER BY count DESC 
+     LIMIT 5`
+  );
+
+  // Activos creados esta semana
+  const weekResult = await db.query(
+    `SELECT COUNT(*) as count 
+     FROM assets 
+     WHERE created_at >= NOW() - INTERVAL '7 days'`
+  );
+  const thisWeek = parseInt(weekResult.rows[0].count);
+
+  // Activos creados este mes
+  const monthResult = await db.query(
+    `SELECT COUNT(*) as count 
+     FROM assets 
+     WHERE created_at >= NOW() - INTERVAL '30 days'`
+  );
+  const thisMonth = parseInt(monthResult.rows[0].count);
+
+  // Últimos 5 activos creados
+  const recentResult = await db.query(
+    'SELECT * FROM assets ORDER BY created_at DESC LIMIT 5'
+  );
+
+  dbLogger.logSuccess('STATS', { total });
+
+  res.json({
+    success: true,
+    stats: {
+      total,
+      thisWeek,
+      thisMonth,
+      byLocation: locationResult.rows,
+      byResponsible: responsibleResult.rows,
+      recent: recentResult.rows
+    }
+  });
+}));
+
+/**
+ * POST /api/assets/search/advanced
+ * Búsqueda avanzada con filtros múltiples
+ * Body: { location?, responsible?, dateFrom?, dateTo?, searchTerm? }
+ */
+router.post('/search/advanced', asyncHandler(async (req, res) => {
+  const { location, responsible, dateFrom, dateTo, searchTerm } = req.body;
+
+  dbLogger.logQuery('ADVANCED SEARCH', 'assets', JSON.stringify(req.body));
+
+  const conditions = [];
+  const params = [];
+  let paramCount = 1;
+
+  if (location && location.trim()) {
+    conditions.push(`location ILIKE $${paramCount}`);
+    params.push(`%${location}%`);
+    paramCount++;
+  }
+
+  if (responsible && responsible.trim()) {
+    conditions.push(`responsible ILIKE $${paramCount}`);
+    params.push(`%${responsible}%`);
+    paramCount++;
+  }
+
+  if (dateFrom) {
+    conditions.push(`created_at >= $${paramCount}`);
+    params.push(dateFrom);
+    paramCount++;
+  }
+
+  if (dateTo) {
+    conditions.push(`created_at <= $${paramCount}`);
+    params.push(dateTo);
+    paramCount++;
+  }
+
+  if (searchTerm && searchTerm.trim()) {
+    conditions.push(`(asset_id ILIKE $${paramCount} OR description ILIKE $${paramCount})`);
+    params.push(`%${searchTerm}%`);
+    paramCount++;
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  const query = `SELECT * FROM assets ${whereClause} ORDER BY created_at DESC`;
+  const result = await db.query(query, params);
+
+  dbLogger.logSuccess('ADVANCED SEARCH', result);
+
+  res.json({
+    success: true,
+    data: result.rows,
+    count: result.rows.length,
+    filters: req.body
+  });
+}));
+
 module.exports = router;

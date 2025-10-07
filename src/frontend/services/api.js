@@ -97,4 +97,64 @@ export const checkDatabase = async () => {
   return response.data;
 };
 
+// =====================================================
+// ESTADISTICAS Y REPORTES
+// =====================================================
+
+/**
+ * Obtener estadisticas para dashboard
+ */
+export const getDashboardStats = async () => {
+  const response = await api.get('/api/assets/stats/dashboard');
+  return response.data;
+};
+
+/**
+ * Exportar inventario a CSV
+ */
+export const exportToCSV = async () => {
+  const response = await api.get('/api/assets/export/csv', {
+    responseType: 'blob'
+  });
+  
+  // Crear URL del blob y descargar
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  
+  // Obtener nombre de archivo del header Content-Disposition
+  const contentDisposition = response.headers['content-disposition'];
+  const filename = contentDisposition
+    ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+    : `inventario_${new Date().toISOString().slice(0, 10)}.csv`;
+  
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  
+  return { success: true, filename };
+};
+
+/**
+ * Busqueda avanzada con filtros multiples
+ */
+export const advancedSearch = async (filters) => {
+  const response = await api.post('/api/assets/search/advanced', filters);
+  return response.data;
+};
+
+// =====================================================
+// BACKUP DE BASE DE DATOS
+// =====================================================
+
+/**
+ * Crear backup de base de datos
+ */
+export const createBackup = async () => {
+  const response = await api.post('/api/db-backup');
+  return response.data;
+};
+
 export default api;

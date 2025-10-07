@@ -79,6 +79,88 @@ app.get('/api/db-test', async (req, res, next) => {
   }
 });
 
+// Crear backup de la base de datos
+app.post('/api/db-backup', async (req, res, next) => {
+  const { spawn } = require('child_process');
+  const fs = require('fs');
+  
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const backupDir = path.join(__dirname, '../../backups');
+    const backupFile = path.join(backupDir, `backup_${timestamp}.sql`);
+
+    // Crear directorio de backups si no existe
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const dbConfig = {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'inventario_db',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || ''
+    };
+
+    // Usar pg_dump para crear backup
+    const pg_dump = spawn('pg_dump', [
+      '-h', dbConfig.host,
+      '-p', dbConfig.port.toString(),
+      '-U', dbConfig.user,
+      '-d', dbConfig.database,
+      '-F', 'p', // Plain text format
+      '-f', backupFile
+    ], {
+      env: {
+        ...process.env,
+        PGPASSWORD: dbConfig.password
+      }
+    });
+
+    let errorOutput = '';
+
+    pg_dump.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pg_dump.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Error en pg_dump:', errorOutput);
+        return res.status(500).json({
+          success: false,
+          message: 'Error al crear backup de la base de datos',
+          error: errorOutput
+        });
+      }
+
+      const stats = fs.statSync(backupFile);
+      res.json({
+        success: true,
+        message: 'Backup creado exitosamente',
+        backup: {
+          filename: path.basename(backupFile),
+          filepath: backupFile,
+          size: stats.size,
+          sizeFormatted: `${(stats.size / 1024).toFixed(2)} KB`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    });
+
+    pg_dump.on('error', (err) => {
+      console.error('Error ejecutando pg_dump:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Error al ejecutar pg_dump. Verifica que PostgreSQL esté instalado.',
+        error: err.message
+      });
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
 // =====================================================
 // MANEJADORES DE ERROR
 // =====================================================

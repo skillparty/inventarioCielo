@@ -9,48 +9,89 @@ const api = axios.create({
   },
 });
 
-// Activos
-export const getActivos = async () => {
-  const response = await api.get('/api/activos');
+// =====================================================
+// ASSETS API SERVICES
+// =====================================================
+
+/**
+ * Obtener todos los activos con paginacion
+ */
+export const getAssets = async (page = 1, limit = 10) => {
+  const response = await api.get(`/api/assets?page=${page}&limit=${limit}`);
   return response.data;
 };
 
-export const getActivoById = async (id) => {
-  const response = await api.get(`/api/activos/${id}`);
+/**
+ * Buscar activos por termino de busqueda
+ */
+export const searchAssets = async (query) => {
+  const response = await api.get(`/api/assets/search?q=${encodeURIComponent(query)}`);
   return response.data;
 };
 
-export const getActivoByQR = async (codigoQR) => {
-  const response = await api.get(`/api/activos/qr/${codigoQR}`);
+/**
+ * Obtener activo por ID interno
+ */
+export const getAssetById = async (id) => {
+  const response = await api.get(`/api/assets/${id}`);
   return response.data;
 };
 
-export const createActivo = async (activo) => {
-  const response = await api.post('/api/activos', activo);
+/**
+ * Buscar activo por asset_id (escaneo QR)
+ */
+export const getAssetByAssetId = async (assetId) => {
+  const response = await api.get(`/api/assets/qr/${assetId}`);
   return response.data;
 };
 
-export const updateActivo = async (id, activo) => {
-  const response = await api.put(`/api/activos/${id}`, activo);
+/**
+ * Crear nuevo activo
+ */
+export const createAsset = async (asset) => {
+  const response = await api.post('/api/assets', asset);
   return response.data;
 };
 
-export const deleteActivo = async (id) => {
-  const response = await api.delete(`/api/activos/${id}`);
+/**
+ * Actualizar activo existente
+ */
+export const updateAsset = async (id, asset) => {
+  const response = await api.put(`/api/assets/${id}`, asset);
   return response.data;
 };
 
-export const getActivoQR = async (id) => {
-  const response = await api.get(`/api/activos/${id}/qr`);
+/**
+ * Eliminar activo
+ */
+export const deleteAsset = async (id) => {
+  const response = await api.delete(`/api/assets/${id}`);
   return response.data;
 };
 
-// Health check
+/**
+ * Generar codigo QR para un activo
+ */
+export const generateQRCode = async (id) => {
+  const response = await api.post(`/api/assets/${id}/generate-qr`);
+  return response.data;
+};
+
+// =====================================================
+// SYSTEM API SERVICES
+// =====================================================
+
+/**
+ * Health check del servidor
+ */
 export const checkHealth = async () => {
   const response = await api.get('/api/health');
   return response.data;
 };
 
+/**
+ * Test de conexion a base de datos
+ */
 export const checkDatabase = async () => {
   const response = await api.get('/api/db-test');
   return response.data;

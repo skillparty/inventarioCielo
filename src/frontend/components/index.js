@@ -1,0 +1,12 @@
+// Exportar todos los componentes principales
+export { default as AssetList } from './AssetList';
+export { default as AssetForm } from './AssetForm';
+export { default as QRGenerator } from './QRGenerator';
+export { default as QRScannerNew } from './QRScannerNew';
+export { default as AssetManager } from './AssetManager';
+
+// Componentes legacy (mantener por compatibilidad)
+export { default as Dashboard } from './Dashboard';
+export { default as ActivosList } from './ActivosList';
+export { default as ActivoForm } from './ActivoForm';
+export { default as QRScanner } from './QRScanner';

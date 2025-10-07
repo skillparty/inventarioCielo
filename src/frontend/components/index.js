@@ -4,6 +4,7 @@ export { default as AssetForm } from './AssetForm';
 export { default as QRGenerator } from './QRGenerator';
 export { default as QRScannerNew } from './QRScannerNew';
 export { default as AssetManager } from './AssetManager';
+export { default as DashboardNew } from './DashboardNew';
 
 // Componentes legacy (mantener por compatibilidad)
 export { default as Dashboard } from './Dashboard';

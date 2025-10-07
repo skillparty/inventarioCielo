@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getActivos, checkHealth } from '../services/api';
+import { getAssets, checkHealth } from '../services/api';
 import './Dashboard.css';
 
 function Dashboard({ onViewChange }) {
@@ -29,7 +29,7 @@ function Dashboard({ onViewChange }) {
 
   const loadDashboardData = async () => {
     try {
-      const response = await getActivos();
+      const response = await getAssets();
       const activos = response.data;
 
       const activosActivos = activos.filter(a => a.estado === 'Activo').length;

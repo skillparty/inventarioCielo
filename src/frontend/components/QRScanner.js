@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { getActivoByQR } from '../services/api';
+import { getAssetByAssetId } from '../services/api';
 import './QRScanner.css';
 
 function QRScanner({ onBack }) {
@@ -55,7 +55,7 @@ function QRScanner({ onBack }) {
 
   const buscarActivo = async (codigoQR) => {
     try {
-      const response = await getActivoByQR(codigoQR);
+      const response = await getAssetByAssetId(codigoQR);
       setResultado(response.data);
       setError(null);
     } catch (error) {

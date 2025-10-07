@@ -1,2 +1,2 @@
-// Este archivo es solo un enlace para que React encuentre el punto de entrada
-export { default } from './frontend/index.js';
+// Punto de entrada principal - importa y ejecuta el código del frontend
+import './frontend/index.js';

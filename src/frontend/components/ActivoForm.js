@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createActivo, updateActivo } from '../services/api';
+import { createAsset, updateAsset } from '../services/api';
 import './ActivoForm.css';
 
 function ActivoForm({ activo, onBack }) {
@@ -52,12 +52,12 @@ function ActivoForm({ activo, onBack }) {
     try {
       if (activo) {
         // Actualizar
-        const response = await updateActivo(activo.id, formData);
+        const response = await updateAsset(activo.id, formData);
         alert(response.message || 'Activo actualizado exitosamente');
         onBack();
       } else {
         // Crear nuevo
-        const response = await createActivo(formData);
+        const response = await createAsset(formData);
         setQrImage(response.qrImage);
         alert(response.message || 'Activo creado exitosamente');
         

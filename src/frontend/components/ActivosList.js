@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getActivos, deleteActivo, getActivoQR } from '../services/api';
+import { getAssets, deleteAsset, generateQRCode } from '../services/api';
 import './ActivosList.css';
 
 function ActivosList({ onEdit, onBack }) {
@@ -15,7 +15,7 @@ function ActivosList({ onEdit, onBack }) {
 
   const loadActivos = async () => {
     try {
-      const response = await getActivos();
+      const response = await getAssets();
       setActivos(response.data);
     } catch (error) {
       console.error('Error al cargar activos:', error);
@@ -28,7 +28,7 @@ function ActivosList({ onEdit, onBack }) {
   const handleDelete = async (id, nombre) => {
     if (window.confirm(`¿Estás seguro de eliminar el activo "${nombre}"?`)) {
       try {
-        await deleteActivo(id);
+        await deleteAsset(id);
         alert('Activo eliminado exitosamente');
         loadActivos();
       } catch (error) {
@@ -40,7 +40,7 @@ function ActivosList({ onEdit, onBack }) {
 
   const handleShowQR = async (id) => {
     try {
-      const response = await getActivoQR(id);
+      const response = await generateQRCode(id);
       setSelectedQR(response);
     } catch (error) {
       console.error('Error al obtener QR:', error);

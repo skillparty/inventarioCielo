@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createAsset, updateAsset } from '../services/api';
 import './ActivoForm.css';
 
 function ActivoForm({ activo, onBack }) {
@@ -15,18 +14,20 @@ function ActivoForm({ activo, onBack }) {
   });
   const [loading, setLoading] = useState(false);
   const [qrImage, setQrImage] = useState(null);
+  const [assetId, setAssetId] = useState(null);
 
   useEffect(() => {
     if (activo) {
+      // Mapear campos del backend (description, location, responsible) al formulario
       setFormData({
-        nombre: activo.nombre || '',
-        descripcion: activo.descripcion || '',
-        categoria: activo.categoria || '',
-        ubicacion: activo.ubicacion || '',
-        estado: activo.estado || 'Activo',
-        numero_serie: activo.numero_serie || '',
-        valor: activo.valor || '',
-        responsable: activo.responsable || '',
+        nombre: activo.asset_id || '',
+        descripcion: activo.description || '',
+        categoria: '',
+        ubicacion: activo.location || '',
+        estado: 'Activo',
+        numero_serie: '',
+        valor: '',
+        responsable: activo.responsible || '',
       });
     }
   }, [activo]);
@@ -39,11 +40,38 @@ function ActivoForm({ activo, onBack }) {
     }));
   };
 
+  const handleDownloadQR = () => {
+    if (qrImage && assetId) {
+      const link = document.createElement('a');
+      link.href = qrImage;
+      link.download = `QR_${assetId}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.nombre.trim()) {
-      alert('El nombre del activo es obligatorio');
+    // Validaciones del frontend
+    if (!formData.numero_serie.trim() || formData.numero_serie.trim().length < 3) {
+      alert('⚠️ El número de serie es OBLIGATORIO y debe tener al menos 3 caracteres');
+      return;
+    }
+
+    if (!formData.descripcion.trim() || formData.descripcion.trim().length < 10) {
+      alert('La descripción es obligatoria y debe tener al menos 10 caracteres');
+      return;
+    }
+
+    if (!formData.responsable.trim() || formData.responsable.trim().length < 3) {
+      alert('El responsable es obligatorio y debe tener al menos 3 caracteres');
+      return;
+    }
+
+    if (!formData.ubicacion.trim() || formData.ubicacion.trim().length < 3) {
+      alert('La ubicación es obligatoria y debe tener al menos 3 caracteres');
       return;
     }
 
@@ -51,14 +79,54 @@ function ActivoForm({ activo, onBack }) {
 
     try {
       if (activo) {
-        // Actualizar
-        const response = await updateAsset(activo.id, formData);
+        // Actualizar - Mapear campos al formato del backend
+        const dataToSend = {
+          description: formData.descripcion,
+          responsible: formData.responsable,
+          location: formData.ubicacion,
+          category: formData.categoria || null,
+          serial_number: formData.numero_serie || null,
+          value: formData.valor ? parseFloat(formData.valor) : 0
+        };
+        
+        const fetchResponse = await fetch(`/api/assets/${activo.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dataToSend)
+        });
+        
+        const response = await fetchResponse.json();
         alert(response.message || 'Activo actualizado exitosamente');
         onBack();
       } else {
-        // Crear nuevo
-        const response = await createAsset(formData);
-        setQrImage(response.qrImage);
+        // Crear nuevo - Mapear campos al formato del backend
+        const dataToSend = {
+          serial_number: formData.numero_serie, // OBLIGATORIO - PRIMARY KEY
+          description: formData.descripcion,
+          responsible: formData.responsable,
+          location: formData.ubicacion,
+          category: formData.categoria || null,
+          value: formData.valor ? parseFloat(formData.valor) : 0
+        };
+        
+        const fetchResponse = await fetch('/api/assets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dataToSend)
+        });
+        
+        const response = await fetchResponse.json();
+        
+        // El QR viene en response.qr.dataURL
+        if (response.qr && response.qr.dataURL) {
+          setQrImage(response.qr.dataURL);
+          setAssetId(response.data.serial_number); // Usar serial_number como identificador
+        }
+        
         alert(response.message || 'Activo creado exitosamente');
         
         // Resetear formulario
@@ -236,16 +304,94 @@ function ActivoForm({ activo, onBack }) {
         </form>
 
         {qrImage && (
-          <div className="qr-result">
-            <h3>✅ Activo creado exitosamente</h3>
-            <p>Código QR generado:</p>
-            <img src={qrImage} alt="QR Code" />
-            <div className="qr-actions">
-              <button onClick={() => setQrImage(null)} className="btn-new">
-                Crear Otro Activo
+          <div className="qr-result" style={{
+            marginTop: '30px',
+            padding: '30px',
+            backgroundColor: '#f0fdf4',
+            border: '2px solid #86efac',
+            borderRadius: '12px',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ color: '#16a34a', marginBottom: '15px' }}>✅ Activo creado exitosamente</h3>
+            <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', color: '#2563eb' }}>
+              {assetId}
+            </p>
+            <p style={{ marginBottom: '20px', color: '#666' }}>
+              Código QR generado - Descárgalo para imprimir y pegar en el activo físico
+            </p>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              display: 'inline-block'
+            }}>
+              <img 
+                src={qrImage} 
+                alt="QR Code" 
+                style={{ 
+                  maxWidth: '300px',
+                  border: '2px solid #ddd',
+                  borderRadius: '8px'
+                }} 
+              />
+            </div>
+            <div className="qr-actions" style={{ 
+              display: 'flex', 
+              gap: '10px', 
+              justifyContent: 'center',
+              flexWrap: 'wrap'
+            }}>
+              <button 
+                onClick={handleDownloadQR} 
+                className="btn-submit"
+                style={{
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📥 Descargar QR
               </button>
-              <button onClick={onBack} className="btn-done">
-                Ver Listado
+              <button 
+                onClick={() => {
+                  setQrImage(null);
+                  setAssetId(null);
+                }} 
+                className="btn-new"
+                style={{
+                  backgroundColor: '#16a34a',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ➕ Crear Otro Activo
+              </button>
+              <button 
+                onClick={onBack} 
+                className="btn-done"
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📋 Ver Listado
               </button>
             </div>
           </div>

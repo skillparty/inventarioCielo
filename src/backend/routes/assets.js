@@ -6,21 +6,16 @@ const { asyncHandler, ApiError } = require('../middleware/errorHandler');
 const {
   validateAssetCreation,
   validateAssetUpdate,
-  validateNumericId,
   validatePagination,
-  validateSearch,
-  validateAssetId
+  validateSearch
 } = require('../middleware/validation');
 const {
   generateQRCode,
-  generateQRDataURL,
-  deleteQRCode,
-  regenerateQRCode,
-  getQRInfo
+  deleteQRCode
 } = require('../utils/qrCode');
 
 // =====================================================
-// RUTAS DE LA API PARA ASSETS
+// RUTAS DE LA API PARA ASSETS (SERIAL_NUMBER COMO PRIMARY KEY)
 // =====================================================
 
 /**
@@ -65,7 +60,7 @@ router.get('/', validatePagination, asyncHandler(async (req, res) => {
  * GET /api/assets/search
  * Buscar activos por término de búsqueda
  * Query params: q (requerido)
- * Busca en: asset_id, description, responsible, location
+ * Busca en: serial_number, description, responsible, location, category
  */
 router.get('/search', validateSearch, asyncHandler(async (req, res) => {
   const { q } = req.query;
@@ -75,10 +70,11 @@ router.get('/search', validateSearch, asyncHandler(async (req, res) => {
 
   const result = await db.query(
     `SELECT * FROM assets 
-     WHERE asset_id ILIKE $1 
+     WHERE serial_number ILIKE $1 
         OR description ILIKE $1 
         OR responsible ILIKE $1 
         OR location ILIKE $1
+        OR category ILIKE $1
      ORDER BY created_at DESC`,
     [searchTerm]
   );
@@ -94,25 +90,25 @@ router.get('/search', validateSearch, asyncHandler(async (req, res) => {
 }));
 
 /**
- * GET /api/assets/qr/:assetId
- * Buscar activo por su asset_id (para lectura de QR)
- * Params: assetId (formato AST-YYYY-NNNN)
+ * GET /api/assets/qr/:serialNumber
+ * Buscar activo por su serial_number (para lectura de QR)
+ * Params: serialNumber
  */
-router.get('/qr/:assetId', validateAssetId, asyncHandler(async (req, res) => {
-  const { assetId } = req.params;
+router.get('/qr/:serialNumber', asyncHandler(async (req, res) => {
+  const { serialNumber } = req.params;
 
-  dbLogger.logQuery('SELECT BY ASSET_ID', 'assets', `asset_id=${assetId}`);
+  dbLogger.logQuery('SELECT BY QR', 'assets', `serial_number="${serialNumber}"`);
 
   const result = await db.query(
-    'SELECT * FROM assets WHERE asset_id = $1',
-    [assetId]
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serialNumber]
   );
 
   if (result.rows.length === 0) {
-    throw new ApiError(404, `No se encontró ningún activo con el ID: ${assetId}`);
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serialNumber}`);
   }
 
-  dbLogger.logSuccess('SELECT BY ASSET_ID', result);
+  dbLogger.logSuccess('SELECT BY QR', result);
 
   res.json({
     success: true,
@@ -121,25 +117,25 @@ router.get('/qr/:assetId', validateAssetId, asyncHandler(async (req, res) => {
 }));
 
 /**
- * GET /api/assets/:id
- * Obtener un activo específico por ID interno
- * Params: id (número entero)
+ * GET /api/assets/:serial_number
+ * Obtener un activo específico por número de serie
+ * Params: serial_number
  */
-router.get('/:id', validateNumericId, asyncHandler(async (req, res) => {
-  const { id } = req.params;
+router.get('/:serial_number', asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
 
-  dbLogger.logQuery('SELECT BY ID', 'assets', `id=${id}`);
+  dbLogger.logQuery('SELECT BY SERIAL', 'assets', `serial_number="${serial_number}"`);
 
   const result = await db.query(
-    'SELECT * FROM assets WHERE id = $1',
-    [id]
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serial_number]
   );
 
   if (result.rows.length === 0) {
-    throw new ApiError(404, `No se encontró ningún activo con el ID: ${id}`);
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
   }
 
-  dbLogger.logSuccess('SELECT BY ID', result);
+  dbLogger.logSuccess('SELECT BY SERIAL', result);
 
   res.json({
     success: true,
@@ -150,29 +146,38 @@ router.get('/:id', validateNumericId, asyncHandler(async (req, res) => {
 /**
  * POST /api/assets
  * Crear nuevo activo
- * Body: { description, responsible, location }
+ * Body: { serial_number (REQUERIDO), description, responsible, location, category?, value? }
  */
 router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
-  const { description, responsible, location } = req.body;
+  const { serial_number, description, responsible, location, category, value } = req.body;
 
-  dbLogger.logQuery('INSERT', 'assets', 'Generando asset_id...');
+  // Validar que serial_number sea obligatorio
+  if (!serial_number || serial_number.trim() === '') {
+    throw new ApiError(400, 'El número de serie es obligatorio');
+  }
 
-  // Generar el próximo asset_id usando la función de PostgreSQL
-  const assetIdResult = await db.query('SELECT generate_next_asset_id() as asset_id');
-  const asset_id = assetIdResult.rows[0].asset_id;
+  dbLogger.logQuery('INSERT', 'assets', `serial_number="${serial_number}"`);
 
-  dbLogger.logQuery('INSERT', 'assets', `asset_id=${asset_id}`);
+  // Verificar que el serial_number no exista ya
+  const existingAsset = await db.query(
+    'SELECT serial_number FROM assets WHERE serial_number = $1',
+    [serial_number]
+  );
 
-  // Generar y guardar código QR como archivo PNG
-  const qrResult = await generateQRCode(asset_id);
+  if (existingAsset.rows.length > 0) {
+    throw new ApiError(409, `Ya existe un activo con el número de serie: ${serial_number}`);
+  }
+
+  // Generar y guardar código QR como archivo PNG (usando el serial_number)
+  const qrResult = await generateQRCode(serial_number);
 
   // Insertar activo en la base de datos
   const result = await db.query(
     `INSERT INTO assets (
-      asset_id, description, responsible, location, qr_code_path
-    ) VALUES ($1, $2, $3, $4, $5) 
+      serial_number, description, responsible, location, qr_code_path, category, value
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7) 
     RETURNING *`,
-    [asset_id, description, responsible, location, qrResult.filePath]
+    [serial_number, description, responsible, location, qrResult.filePath, category || null, value || 0]
   );
 
   dbLogger.logSuccess('INSERT', result);
@@ -190,49 +195,66 @@ router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
 }));
 
 /**
- * PUT /api/assets/:id
+ * PUT /api/assets/:serial_number
  * Actualizar activo
- * Params: id (número entero)
- * Body: { description?, responsible?, location? } - Al menos uno requerido
+ * Params: serial_number
+ * Body: { description?, responsible?, location?, category?, value? } - Al menos uno requerido
+ * NOTA: El serial_number NO se puede cambiar (es PRIMARY KEY)
  */
-router.put('/:id', validateNumericId, validateAssetUpdate, asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { description, responsible, location } = req.body;
+router.put('/:serial_number', validateAssetUpdate, asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
+  const { description, responsible, location, category, value } = req.body;
 
   // Construir query dinámica solo con campos proporcionados
   const updates = [];
   const params = [];
   let paramCount = 1;
 
-  if (description) {
+  if (description !== undefined) {
     updates.push(`description = $${paramCount}`);
     params.push(description);
     paramCount++;
   }
 
-  if (responsible) {
+  if (responsible !== undefined) {
     updates.push(`responsible = $${paramCount}`);
     params.push(responsible);
     paramCount++;
   }
 
-  if (location) {
+  if (location !== undefined) {
     updates.push(`location = $${paramCount}`);
     params.push(location);
     paramCount++;
   }
 
-  params.push(id);
+  if (category !== undefined) {
+    updates.push(`category = $${paramCount}`);
+    params.push(category);
+    paramCount++;
+  }
 
-  dbLogger.logQuery('UPDATE', 'assets', `id=${id}, fields=[${updates.join(', ')}]`);
+  if (value !== undefined) {
+    updates.push(`value = $${paramCount}`);
+    params.push(value);
+    paramCount++;
+  }
+
+  if (updates.length === 0) {
+    throw new ApiError(400, 'Debe proporcionar al menos un campo para actualizar');
+  }
+
+  params.push(serial_number);
+
+  dbLogger.logQuery('UPDATE', 'assets', `serial_number="${serial_number}", fields=[${updates.join(', ')}]`);
 
   const result = await db.query(
-    `UPDATE assets SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+    `UPDATE assets SET ${updates.join(', ')} WHERE serial_number = $${paramCount} RETURNING *`,
     params
   );
 
   if (result.rows.length === 0) {
-    throw new ApiError(404, `No se encontró ningún activo con el ID: ${id}`);
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
   }
 
   dbLogger.logSuccess('UPDATE', result);
@@ -245,254 +267,85 @@ router.put('/:id', validateNumericId, validateAssetUpdate, asyncHandler(async (r
 }));
 
 /**
- * DELETE /api/assets/:id
- * Eliminar un activo
- * Params: id (número entero)
+ * DELETE /api/assets/:serial_number
+ * Eliminar activo
+ * Params: serial_number
  */
-router.delete('/:id', validateNumericId, asyncHandler(async (req, res) => {
-  const { id } = req.params;
+router.delete('/:serial_number', asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
 
-  dbLogger.logQuery('DELETE', 'assets', `id=${id}`);
+  dbLogger.logQuery('DELETE', 'assets', `serial_number="${serial_number}"`);
 
-  const result = await db.query(
-    'DELETE FROM assets WHERE id = $1 RETURNING *',
-    [id]
+  // Obtener info del activo antes de eliminar (para borrar QR)
+  const assetResult = await db.query(
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serial_number]
   );
 
-  if (result.rows.length === 0) {
-    throw new ApiError(404, `No se encontró ningún activo con el ID: ${id}`);
+  if (assetResult.rows.length === 0) {
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
   }
 
-  const deletedAsset = result.rows[0];
+  const asset = assetResult.rows[0];
 
-  // Eliminar archivo QR físico si existe
-  try {
-    await deleteQRCode(deletedAsset.asset_id);
-  } catch (error) {
-    // No es crítico si el QR no se puede eliminar
-    console.warn(`Advertencia: No se pudo eliminar el QR ${deletedAsset.asset_id}:`, error.message);
+  // Eliminar el archivo QR si existe
+  if (asset.qr_code_path) {
+    await deleteQRCode(asset.qr_code_path);
   }
 
-  dbLogger.logSuccess('DELETE', result);
+  // Eliminar el activo de la base de datos
+  await db.query('DELETE FROM assets WHERE serial_number = $1', [serial_number]);
+
+  dbLogger.logSuccess('DELETE', { rowCount: 1 });
 
   res.json({
     success: true,
-    message: 'Activo eliminado exitosamente',
-    data: deletedAsset
+    message: `Activo "${serial_number}" eliminado exitosamente`
   });
 }));
 
 /**
- * POST /api/assets/:id/generate-qr
- * Generar código QR para un activo existente
- * Params: id (número entero)
- * Regenera el QR si ya existe
+ * POST /api/assets/:serial_number/generate-qr
+ * Generar/Regenerar código QR para un activo
+ * Params: serial_number
  */
-router.post('/:id/generate-qr', validateNumericId, asyncHandler(async (req, res) => {
-  const { id } = req.params;
+router.post('/:serial_number/generate-qr', asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
 
-  dbLogger.logQuery('SELECT FOR QR', 'assets', `id=${id}`);
+  dbLogger.logQuery('GENERATE QR', 'assets', `serial_number="${serial_number}"`);
 
+  // Verificar que el activo existe
   const result = await db.query(
-    'SELECT asset_id, qr_code_path FROM assets WHERE id = $1',
-    [id]
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serial_number]
   );
 
   if (result.rows.length === 0) {
-    throw new ApiError(404, `No se encontró ningún activo con el ID: ${id}`);
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
   }
 
-  const { asset_id } = result.rows[0];
+  const asset = result.rows[0];
 
-  // Regenerar código QR
-  const qrResult = await regenerateQRCode(asset_id);
+  // Generar nuevo QR
+  const qrResult = await generateQRCode(serial_number);
 
-  // Actualizar ruta del QR en la base de datos si cambió
+  // Actualizar la ruta del QR en la base de datos
   await db.query(
-    'UPDATE assets SET qr_code_path = $1 WHERE id = $2',
-    [qrResult.filePath, id]
+    'UPDATE assets SET qr_code_path = $1 WHERE serial_number = $2',
+    [qrResult.filePath, serial_number]
   );
 
-  dbLogger.logSuccess('GENERATE QR', { rowCount: 1 });
+  dbLogger.logSuccess('GENERATE QR', { serial_number });
 
   res.json({
     success: true,
     message: 'Código QR generado exitosamente',
-    asset_id,
+    serial_number: serial_number,
     qr: {
       filePath: qrResult.filePath,
       fileName: qrResult.fileName,
       dataURL: qrResult.dataURL
     }
-  });
-}));
-
-/**
- * GET /api/assets/export/csv
- * Exportar todos los activos a formato CSV
- */
-router.get('/export/csv', asyncHandler(async (req, res) => {
-  dbLogger.logQuery('EXPORT CSV', 'assets', 'all');
-
-  const result = await db.query(
-    'SELECT id, asset_id, description, responsible, location, created_at, updated_at FROM assets ORDER BY created_at DESC'
-  );
-
-  // Crear CSV manualmente
-  const headers = ['ID', 'Asset ID', 'Descripcion', 'Responsable', 'Ubicacion', 'Fecha Creacion', 'Fecha Actualizacion'];
-  const csvRows = [headers.join(',')];
-
-  result.rows.forEach(row => {
-    const values = [
-      row.id,
-      row.asset_id,
-      `"${(row.description || '').replace(/"/g, '""')}"`, // Escapar comillas
-      `"${(row.responsible || '').replace(/"/g, '""')}"`,
-      `"${(row.location || '').replace(/"/g, '""')}"`,
-      new Date(row.created_at).toLocaleString('es-ES'),
-      new Date(row.updated_at).toLocaleString('es-ES')
-    ];
-    csvRows.push(values.join(','));
-  });
-
-  const csvContent = csvRows.join('\n');
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const filename = `inventario_${timestamp}.csv`;
-
-  dbLogger.logSuccess('EXPORT CSV', { rowCount: result.rows.length });
-
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.setHeader('Content-Length', Buffer.byteLength(csvContent, 'utf8'));
-  
-  // Agregar BOM para Excel UTF-8
-  res.write('\uFEFF');
-  res.end(csvContent);
-}));
-
-/**
- * GET /api/assets/stats/dashboard
- * Obtener estadísticas para el dashboard
- */
-router.get('/stats/dashboard', asyncHandler(async (req, res) => {
-  dbLogger.logQuery('STATS', 'assets', 'dashboard');
-
-  // Total de activos
-  const totalResult = await db.query('SELECT COUNT(*) as count FROM assets');
-  const total = parseInt(totalResult.rows[0].count);
-
-  // Activos por ubicación
-  const locationResult = await db.query(
-    `SELECT location, COUNT(*) as count 
-     FROM assets 
-     WHERE location IS NOT NULL AND location != ''
-     GROUP BY location 
-     ORDER BY count DESC 
-     LIMIT 10`
-  );
-
-  // Activos por responsable (top 5)
-  const responsibleResult = await db.query(
-    `SELECT responsible, COUNT(*) as count 
-     FROM assets 
-     WHERE responsible IS NOT NULL AND responsible != ''
-     GROUP BY responsible 
-     ORDER BY count DESC 
-     LIMIT 5`
-  );
-
-  // Activos creados esta semana
-  const weekResult = await db.query(
-    `SELECT COUNT(*) as count 
-     FROM assets 
-     WHERE created_at >= NOW() - INTERVAL '7 days'`
-  );
-  const thisWeek = parseInt(weekResult.rows[0].count);
-
-  // Activos creados este mes
-  const monthResult = await db.query(
-    `SELECT COUNT(*) as count 
-     FROM assets 
-     WHERE created_at >= NOW() - INTERVAL '30 days'`
-  );
-  const thisMonth = parseInt(monthResult.rows[0].count);
-
-  // Últimos 5 activos creados
-  const recentResult = await db.query(
-    'SELECT * FROM assets ORDER BY created_at DESC LIMIT 5'
-  );
-
-  dbLogger.logSuccess('STATS', { total });
-
-  res.json({
-    success: true,
-    stats: {
-      total,
-      thisWeek,
-      thisMonth,
-      byLocation: locationResult.rows,
-      byResponsible: responsibleResult.rows,
-      recent: recentResult.rows
-    }
-  });
-}));
-
-/**
- * POST /api/assets/search/advanced
- * Búsqueda avanzada con filtros múltiples
- * Body: { location?, responsible?, dateFrom?, dateTo?, searchTerm? }
- */
-router.post('/search/advanced', asyncHandler(async (req, res) => {
-  const { location, responsible, dateFrom, dateTo, searchTerm } = req.body;
-
-  dbLogger.logQuery('ADVANCED SEARCH', 'assets', JSON.stringify(req.body));
-
-  const conditions = [];
-  const params = [];
-  let paramCount = 1;
-
-  if (location && location.trim()) {
-    conditions.push(`location ILIKE $${paramCount}`);
-    params.push(`%${location}%`);
-    paramCount++;
-  }
-
-  if (responsible && responsible.trim()) {
-    conditions.push(`responsible ILIKE $${paramCount}`);
-    params.push(`%${responsible}%`);
-    paramCount++;
-  }
-
-  if (dateFrom) {
-    conditions.push(`created_at >= $${paramCount}`);
-    params.push(dateFrom);
-    paramCount++;
-  }
-
-  if (dateTo) {
-    conditions.push(`created_at <= $${paramCount}`);
-    params.push(dateTo);
-    paramCount++;
-  }
-
-  if (searchTerm && searchTerm.trim()) {
-    conditions.push(`(asset_id ILIKE $${paramCount} OR description ILIKE $${paramCount})`);
-    params.push(`%${searchTerm}%`);
-    paramCount++;
-  }
-
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  
-  const query = `SELECT * FROM assets ${whereClause} ORDER BY created_at DESC`;
-  const result = await db.query(query, params);
-
-  dbLogger.logSuccess('ADVANCED SEARCH', result);
-
-  res.json({
-    success: true,
-    data: result.rows,
-    count: result.rows.length,
-    filters: req.body
   });
 }));
 

@@ -12,24 +12,48 @@ function Dashboard({ onViewChange }) {
   });
   const [backendStatus, setBackendStatus] = useState('checking');
   const [loading, setLoading] = useState(true);
+  const [debugInfo, setDebugInfo] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
     checkBackendStatus();
   }, []);
 
+  const addDebug = (msg) => {
+    setDebugInfo(prev => [...prev, msg]);
+  };
+
   const checkBackendStatus = async () => {
     try {
-      await checkHealth();
-      setBackendStatus('online');
+      addDebug('1. Conectando a: ' + window.location.origin + '/api/health');
+      
+      // Usar fetch directamente (más simple)
+      const response = await fetch('/api/health');
+      const data = await response.json();
+      
+      if (data.success) {
+        setBackendStatus('online');
+        addDebug('2. ✅ Health check OK');
+      } else {
+        setBackendStatus('offline');
+        addDebug('2. ❌ Health check inválido: ' + JSON.stringify(data));
+      }
     } catch (error) {
       setBackendStatus('offline');
+      addDebug('2. ❌ Error health check: ' + error.message);
     }
   };
 
   const loadDashboardData = async () => {
     try {
-      const response = await getAssets();
+      addDebug('3. Cargando activos desde /api/assets...');
+      
+      // Usar fetch directamente en lugar de axios
+      const fetchResponse = await fetch('/api/assets?page=1&limit=100');
+      const response = await fetchResponse.json();
+      
+      addDebug('4. Respuesta: ' + JSON.stringify(response).substring(0, 80) + '...');
+      
       const activos = response.data;
 
       const activosActivos = activos.filter(a => a.estado === 'Activo').length;
@@ -44,8 +68,10 @@ function Dashboard({ onViewChange }) {
         mantenimiento: activosMantenimiento,
         valorTotal: valorTotal,
       });
+      addDebug(`5. ✅ ${activos.length} activos cargados correctamente`);
     } catch (error) {
       console.error('Error al cargar datos del dashboard:', error);
+      addDebug('5. ❌ Error al cargar activos: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -76,6 +102,23 @@ function Dashboard({ onViewChange }) {
           Backend: {backendStatus === 'online' ? 'Conectado' : 'Desconectado'}
         </div>
       </div>
+      
+      {debugInfo.length > 0 && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          padding: '10px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          fontSize: '11px',
+          wordBreak: 'break-all'
+        }}>
+          <strong>🔍 Debug Log:</strong>
+          {debugInfo.map((msg, i) => (
+            <div key={i} style={{ marginTop: '4px' }}>{msg}</div>
+          ))}
+        </div>
+      )}
 
       <div className="stats-grid">
         <div className="stat-card total">

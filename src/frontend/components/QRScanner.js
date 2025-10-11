@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { getAssetByAssetId } from '../services/api';
 import './QRScanner.css';
 
 function QRScanner({ onBack }) {
@@ -18,23 +17,62 @@ function QRScanner({ onBack }) {
     };
   }, [scanner]);
 
-  const iniciarEscaneo = () => {
+  const iniciarEscaneo = async () => {
     setScanning(true);
     setResultado(null);
     setError(null);
 
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "qr-reader",
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      },
-      false
-    );
+    try {
+      // Primero pedir permisos explícitamente
+      console.log('Solicitando permisos de cámara...');
+      
+      await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      }).then(stream => {
+        // Cerrar el stream inmediatamente, solo queríamos pedir permisos
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Permisos de cámara concedidos');
+      });
 
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
-    setScanner(html5QrcodeScanner);
+      // Ahora iniciar el scanner
+      const html5QrcodeScanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          // Configuración simplificada para mejor compatibilidad
+          rememberLastUsedCamera: true,
+          showTorchButtonIfSupported: true
+        },
+        false
+      );
+
+      html5QrcodeScanner.render(onScanSuccess, (errorMessage) => {
+        // Solo mostrar errores importantes
+        if (errorMessage && !errorMessage.includes('NotFoundException')) {
+          console.warn('Error de escaneo:', errorMessage);
+        }
+      });
+      
+      setScanner(html5QrcodeScanner);
+    } catch (error) {
+      console.error('Error al iniciar scanner:', error);
+      
+      let errorMsg = 'Error al iniciar la cámara. ';
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMsg += 'Permisos de cámara denegados. Ve a Configuración de Chrome → Permisos del sitio → Cámara y permite el acceso.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMsg += 'No se encontró ninguna cámara en tu dispositivo.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMsg += 'La cámara está siendo usada por otra aplicación.';
+      } else {
+        errorMsg += 'Error: ' + error.message;
+      }
+      
+      setError(errorMsg);
+      setScanning(false);
+    }
   };
 
   const onScanSuccess = async (decodedText) => {
@@ -55,9 +93,32 @@ function QRScanner({ onBack }) {
 
   const buscarActivo = async (codigoQR) => {
     try {
-      const response = await getAssetByAssetId(codigoQR);
-      setResultado(response.data);
-      setError(null);
+      // Usar fetch directamente
+      const fetchResponse = await fetch(`/api/assets/qr/${encodeURIComponent(codigoQR)}`);
+      const response = await fetchResponse.json();
+      
+      if (response.success && response.data) {
+        // Mapear campos del backend al formato esperado por el componente
+        const activoMapeado = {
+          nombre: response.data.serial_number, // Mostrar serial_number como nombre principal
+          descripcion: response.data.description,
+          ubicacion: response.data.location,
+          responsable: response.data.responsible,
+          codigo_qr: response.data.serial_number, // El QR contiene el serial_number
+          fecha_registro: response.data.created_at,
+          // Campos completos desde el backend
+          categoria: response.data.category || 'N/A',
+          numero_serie: response.data.serial_number,
+          valor: response.data.value || 0,
+          estado: 'Activo'
+        };
+        
+        setResultado(activoMapeado);
+        setError(null);
+      } else {
+        setError('No se encontró ningún activo con ese código QR');
+        setResultado(null);
+      }
     } catch (error) {
       console.error('Error al buscar activo:', error);
       setError('No se encontró ningún activo con ese código QR');

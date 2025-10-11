@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const https = require('https');
+const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
 const assetsRoutes = require('./routes/assets');
@@ -11,18 +13,19 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Configuración HTTPS
+const httpsOptions = {
+  key: fs.readFileSync(path.join(__dirname, '../../key.pem')),
+  cert: fs.readFileSync(path.join(__dirname, '../../cert.pem'))
+};
+
 // =====================================================
 // CONFIGURACIÓN DE MIDDLEWARES
 // =====================================================
 
-// CORS configurado para localhost y desarrollo
+// CORS configurado para permitir acceso desde cualquier dispositivo en la red local
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001'
-  ],
+  origin: true, // Permite cualquier origen en desarrollo
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -36,6 +39,18 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Servir archivos estáticos (códigos QR)
 app.use('/qr_codes', express.static(path.join(__dirname, '../../public/qr_codes')));
+
+// Servir el frontend de React desde el build
+const frontendBuildPath = path.join(__dirname, '../frontend/build');
+const frontendPublicPath = path.join(__dirname, '../../public');
+
+// Si existe el build de React, servirlo
+if (require('fs').existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+} else {
+  // Si no existe el build, servir desde public como fallback
+  app.use(express.static(frontendPublicPath));
+}
 
 // Logger de peticiones HTTP
 app.use(requestLogger);
@@ -165,8 +180,20 @@ app.post('/api/db-backup', async (req, res, next) => {
 // MANEJADORES DE ERROR
 // =====================================================
 
-// Manejador 404 - Ruta no encontrada
-app.use(notFoundHandler);
+// Ruta catch-all: devolver index.html para todas las rutas que no sean API
+// Esto permite que React Router maneje las rutas del frontend
+app.get('*', (req, res) => {
+  if (require('fs').existsSync(path.join(frontendBuildPath, 'index.html'))) {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  } else {
+    res.status(404).json({
+      success: false,
+      message: 'Frontend no encontrado. Ejecuta "npm run build" para compilar el frontend.',
+      statusCode: 404,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Manejador global de errores
 app.use(errorHandler);
@@ -192,16 +219,36 @@ const startServer = async () => {
   try {
     await testDatabaseConnection();
 
-    app.listen(PORT, () => {
+    // Crear servidor HTTPS
+    const httpsServer = https.createServer(httpsOptions, app);
+
+    // Escuchar en 0.0.0.0 para permitir acceso desde otros dispositivos en la red
+    httpsServer.listen(PORT, '0.0.0.0', () => {
+      const os = require('os');
+      const networkInterfaces = os.networkInterfaces();
+      let localIP = 'localhost';
+      
+      // Obtener la IP local de la red
+      for (const name of Object.keys(networkInterfaces)) {
+        for (const iface of networkInterfaces[name]) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            localIP = iface.address;
+            break;
+          }
+        }
+      }
+      
       console.log('');
       console.log('================================================');
-      console.log(`🚀 Servidor Express iniciado exitosamente`);
+      console.log(`🚀 Servidor HTTPS Express iniciado exitosamente`);
       console.log(`================================================`);
-      console.log(`📡 URL: http://localhost:${PORT}`);
+      console.log(`🔒 URL Local: https://localhost:${PORT}`);
+      console.log(`📱 URL Red Local: https://${localIP}:${PORT}`);
       console.log(`🌍 Entorno: ${NODE_ENV}`);
-      console.log(`📊 API: http://localhost:${PORT}/api/assets`);
-      console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
-      console.log(`🗄️  DB Test: http://localhost:${PORT}/api/db-test`);
+      console.log(`📊 API: https://${localIP}:${PORT}/api/assets`);
+      console.log(`❤️  Health: https://${localIP}:${PORT}/api/health`);
+      console.log('================================================');
+      console.log('⚠️  IMPORTANTE: Acepta el certificado autofirmado en tu navegador');
       console.log('================================================');
       console.log('');
     });

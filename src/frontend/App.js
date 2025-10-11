@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
-import ActivosList from './components/ActivosList';
+import ActivosListSimple from './components/ActivosListSimple';
 import ActivoForm from './components/ActivoForm';
 import QRScanner from './components/QRScanner';
 
@@ -26,7 +26,7 @@ function App() {
       case 'dashboard':
         return <Dashboard onViewChange={handleViewChange} />;
       case 'list':
-        return <ActivosList onEdit={handleEditActivo} onBack={() => handleViewChange('dashboard')} />;
+        return <ActivosListSimple onEdit={handleEditActivo} onBack={() => handleViewChange('dashboard')} />;
       case 'new':
         return <ActivoForm onBack={() => handleViewChange('list')} />;
       case 'edit':

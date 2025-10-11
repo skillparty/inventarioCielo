@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Usar URL relativa para que funcione tanto en localhost como desde otros dispositivos
+// El backend y frontend están en el mismo puerto (3333)
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 const api = axios.create({
   baseURL: API_URL,

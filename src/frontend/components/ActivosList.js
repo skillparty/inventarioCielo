@@ -7,7 +7,7 @@ function ActivosList({ onEdit, onBack }) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
-  const [selectedQR, setSelectedQR] = useState(null);
+  const [expandedQR, setExpandedQR] = useState({}); // {activoId: qrData}
 
   useEffect(() => {
     loadActivos();
@@ -38,23 +38,68 @@ function ActivosList({ onEdit, onBack }) {
     }
   };
 
-  const handleShowQR = async (id) => {
+  const handleToggleQR = (id) => {
+    console.log('handleToggleQR llamado con ID:', id);
+    
+    // Si ya está expandido, colapsarlo
+    if (expandedQR[id]) {
+      console.log('Colapsando QR para ID:', id);
+      setExpandedQR(prev => {
+        const newState = {...prev};
+        delete newState[id];
+        return newState;
+      });
+      return;
+    }
+    
+    console.log('Generando QR para ID:', id);
+    
+    // Si no está expandido, generar y expandir
+    generateQRCode(id)
+      .then(response => {
+        console.log('Respuesta recibida:', response);
+        if (response && response.success && response.qr && response.qr.dataURL) {
+          console.log('QR válido, expandiendo...');
+          setExpandedQR(prev => ({
+            ...prev,
+            [id]: response
+          }));
+          console.log('Estado actualizado');
+        } else {
+          console.error('Respuesta inválida:', response);
+          alert('Error: No se recibió el código QR del servidor');
+        }
+      })
+      .catch(error => {
+        console.error('Error al obtener QR:', error);
+        alert('Error al generar código QR: ' + error.message);
+      });
+  };
+
+  const handleDownloadQR = (assetId, dataURL) => {
     try {
-      const response = await generateQRCode(id);
-      setSelectedQR(response);
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = `QR_${assetId}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
-      console.error('Error al obtener QR:', error);
-      alert('Error al generar código QR');
+      console.error('Error al descargar:', error);
+      alert('Error al descargar el código QR');
     }
   };
 
+
   const filteredActivos = activos.filter(activo => {
-    const matchesSearch = activo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         activo.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         activo.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         activo.responsable?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = 
+      (activo.asset_id?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (activo.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (activo.location?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (activo.responsible?.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesEstado = filterEstado === 'todos' || activo.estado === filterEstado;
+    // El backend no tiene campo 'estado', así que mostramos todos
+    const matchesEstado = filterEstado === 'todos';
 
     return matchesSearch && matchesEstado;
   });
@@ -95,7 +140,7 @@ function ActivosList({ onEdit, onBack }) {
       <div className="filters-bar">
         <input
           type="text"
-          placeholder="🔍 Buscar por nombre, categoría, ubicación o responsable..."
+          placeholder="🔍 Buscar por ID, descripción, ubicación o responsable..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="search-input"
@@ -106,10 +151,7 @@ function ActivosList({ onEdit, onBack }) {
           onChange={(e) => setFilterEstado(e.target.value)}
           className="filter-select"
         >
-          <option value="todos">Todos los estados</option>
-          <option value="Activo">Activo</option>
-          <option value="Inactivo">Inactivo</option>
-          <option value="Mantenimiento">Mantenimiento</option>
+          <option value="todos">Todos los activos</option>
         </select>
 
         <button className="refresh-btn" onClick={loadActivos}>
@@ -130,42 +172,128 @@ function ActivosList({ onEdit, onBack }) {
           {filteredActivos.map((activo) => (
             <div key={activo.id} className="activo-card">
               <div className="activo-header">
-                <h3>{activo.nombre}</h3>
-                <span className={`estado-badge ${activo.estado?.toLowerCase()}`}>
-                  {activo.estado}
+                <h3>{activo.asset_id}</h3>
+                <span className="estado-badge activo">
+                  Activo
                 </span>
               </div>
               
               <div className="activo-body">
-                <p><strong>Categoría:</strong> {activo.categoria || 'N/A'}</p>
-                <p><strong>Ubicación:</strong> {activo.ubicacion || 'N/A'}</p>
-                <p><strong>Responsable:</strong> {activo.responsable || 'N/A'}</p>
-                <p><strong>Valor:</strong> {formatCurrency(activo.valor)}</p>
-                <p><strong>Serie:</strong> {activo.numero_serie || 'N/A'}</p>
-                <p className="fecha"><strong>Registro:</strong> {formatDate(activo.fecha_registro)}</p>
-                {activo.descripcion && (
-                  <p className="descripcion"><strong>Descripción:</strong> {activo.descripcion}</p>
+                <p><strong>Ubicación:</strong> {activo.location || 'N/A'}</p>
+                <p><strong>Responsable:</strong> {activo.responsible || 'N/A'}</p>
+                <p className="fecha"><strong>Creado:</strong> {formatDate(activo.created_at)}</p>
+                <p className="fecha"><strong>Actualizado:</strong> {formatDate(activo.updated_at)}</p>
+                {activo.description && (
+                  <p className="descripcion"><strong>Descripción:</strong> {activo.description}</p>
                 )}
               </div>
 
+              {/* Sección QR expandible */}
+              {expandedQR[activo.id] && (
+                <div style={{
+                  backgroundColor: '#f0f9ff',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  margin: '15px 0',
+                  textAlign: 'center',
+                  border: '2px solid #3b82f6'
+                }}>
+                  <h4 style={{ marginBottom: '15px', color: '#1e40af' }}>
+                    Código QR - {expandedQR[activo.id].asset_id}
+                  </h4>
+                  <img 
+                    src={expandedQR[activo.id].qr.dataURL} 
+                    alt="QR Code"
+                    style={{
+                      width: '250px',
+                      height: '250px',
+                      border: '3px solid #ddd',
+                      borderRadius: '8px',
+                      backgroundColor: 'white',
+                      padding: '15px',
+                      marginBottom: '15px'
+                    }}
+                  />
+                  <div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDownloadQR(expandedQR[activo.id].asset_id, expandedQR[activo.id].qr.dataURL);
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        marginRight: '10px'
+                      }}
+                    >
+                      📥 Descargar QR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleToggleQR(activo.id);
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Ocultar QR
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="activo-actions">
                 <button 
+                  type="button"
                   className="btn-qr" 
-                  onClick={() => handleShowQR(activo.id)}
-                  title="Ver código QR"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleToggleQR(activo.id);
+                    return false;
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  title={expandedQR[activo.id] ? "Ocultar código QR" : "Ver código QR"}
                 >
-                  📱
+                  {expandedQR[activo.id] ? '❌' : '📱'}
                 </button>
                 <button 
                   className="btn-edit" 
-                  onClick={() => onEdit(activo)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(activo);
+                  }}
                   title="Editar"
                 >
                   ✏️
                 </button>
                 <button 
                   className="btn-delete" 
-                  onClick={() => handleDelete(activo.id, activo.nombre)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(activo.id, activo.asset_id);
+                  }}
                   title="Eliminar"
                 >
                   🗑️
@@ -173,19 +301,6 @@ function ActivosList({ onEdit, onBack }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {selectedQR && (
-        <div className="modal-overlay" onClick={() => setSelectedQR(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Código QR</h3>
-            <img src={selectedQR.qrImage} alt="QR Code" />
-            <p className="qr-code">{selectedQR.codigo_qr}</p>
-            <button className="btn-close" onClick={() => setSelectedQR(null)}>
-              Cerrar
-            </button>
-          </div>
         </div>
       )}
     </div>

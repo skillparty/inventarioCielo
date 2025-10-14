@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Camera, Search, RefreshCw, Square, X, CheckCircle } from 'lucide-react';
 import './QRScanner.css';
 
 function QRScanner({ onBack }) {
@@ -163,7 +164,7 @@ function QRScanner({ onBack }) {
         <button className="back-btn" onClick={onBack}>
           ← Volver
         </button>
-        <h2>📷 Escanear Código QR</h2>
+        <h2><Camera size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Escanear Código QR</h2>
       </div>
 
       <div className="scanner-container">
@@ -177,7 +178,7 @@ function QRScanner({ onBack }) {
           {!scanning && !resultado && (
             <div className="scanner-actions">
               <button className="btn-start-scan" onClick={iniciarEscaneo}>
-                📷 Iniciar Escaneo con Cámara
+                <Camera size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Iniciar Escaneo con Cámara
               </button>
               
               <div className="manual-search">
@@ -190,7 +191,7 @@ function QRScanner({ onBack }) {
                     onChange={(e) => setManualCode(e.target.value)}
                   />
                   <button type="submit" className="btn-search">
-                    🔍 Buscar
+                    <Search size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Buscar
                   </button>
                 </form>
               </div>
@@ -201,19 +202,19 @@ function QRScanner({ onBack }) {
             <div className="scanner-active">
               <div id="qr-reader"></div>
               <button className="btn-stop-scan" onClick={detenerEscaneo}>
-                ⏹️ Detener Escaneo
+                <Square size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Detener Escaneo
               </button>
             </div>
           )}
 
           {error && (
             <div className="scanner-error">
-              <p>❌ {error}</p>
+              <p><X size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{error}</p>
               <button className="btn-retry" onClick={() => {
                 setError(null);
                 setManualCode('');
               }}>
-                🔄 Intentar de nuevo
+                <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Intentar de nuevo
               </button>
             </div>
           )}
@@ -221,7 +222,7 @@ function QRScanner({ onBack }) {
           {resultado && (
             <div className="scanner-result">
               <div className="result-header">
-                <h3>✅ Activo Encontrado</h3>
+                <h3><CheckCircle size={20} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Activo Encontrado</h3>
                 <span className={`estado-badge ${resultado.estado?.toLowerCase()}`}>
                   {resultado.estado}
                 </span>
@@ -273,7 +274,7 @@ function QRScanner({ onBack }) {
                   setResultado(null);
                   setManualCode('');
                 }}>
-                  🔄 Escanear Otro
+                  <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Escanear Otro
                 </button>
               </div>
             </div>

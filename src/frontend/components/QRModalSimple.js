@@ -44,14 +44,14 @@ export function showQRModal(qrData) {
       color: #999;
       padding: 5px;
       line-height: 1;
-    ">✕</button>
+    ">×</button>
     
     <h2 style="
       margin-bottom: 25px;
       color: #1f2937;
       font-size: 24px;
       font-weight: bold;
-    ">📱 Código QR del Activo</h2>
+    ">Código QR del Activo</h2>
     
     <div style="
       background-color: #f9fafb;
@@ -116,7 +116,7 @@ export function showQRModal(qrData) {
         font-size: 15px;
         font-weight: 600;
         box-shadow: 0 2px 4px rgba(37,99,235,0.3);
-      ">📥 Descargar QR</button>
+      ">Descargar QR</button>
       
       <button id="close-btn" style="
         padding: 12px 28px;
@@ -178,9 +178,18 @@ export function showQRModal(qrData) {
   });
   
   // Prevenir TODOS los eventos en el overlay que puedan cerrar el modal
-  overlay.addEventListener('click', (e) => e.stopPropagation());
-  overlay.addEventListener('mousedown', (e) => e.stopPropagation());
-  overlay.addEventListener('mouseup', (e) => e.stopPropagation());
+  overlay.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  overlay.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  overlay.addEventListener('mouseup', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
   
   // Agregar al DOM
   overlay.appendChild(modal);

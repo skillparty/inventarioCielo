@@ -1,30 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { showQROverlay } from './QROverlay';
+import { QrCode, Edit, Trash2, List, Search, RefreshCw } from 'lucide-react';
 import './ActivosList.css';
 
 // Componente de tarjeta de activo aislado para manejar sus propios eventos
 function ActivoCard({ activo, onEdit }) {
 
-  const handleShowQR = async () => {
+  const handleShowQR = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🔵 handleShowQR llamado para:', activo.serial_number);
+    
     try {
+      console.log('🔵 Generando QR para:', activo.serial_number);
       // Usar fetch directamente con serial_number
       const response = await fetch(`/api/assets/${activo.serial_number}/generate-qr`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
+      console.log('🔵 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🔴 Error del servidor:', errorText);
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      
       const data = await response.json();
+      console.log('🔵 Respuesta del servidor:', data);
       
       if (data && data.success && data.qr && data.qr.dataURL) {
-        // Mostrar el serial_number en el overlay
-        showQROverlay({
-          ...data,
-          asset_id: activo.serial_number
-        });
+        console.log('🟢 Mostrando QR overlay');
+        // Pequeño delay para asegurar que el evento de click termine
+        setTimeout(() => {
+          showQROverlay({
+            ...data,
+            asset_id: activo.serial_number
+          });
+        }, 100);
       } else {
+        console.error('🔴 Error: respuesta inválida del servidor', data);
         alert('Error al generar QR');
       }
     } catch (error) {
-      console.error('Error al obtener QR:', error);
-      alert('Error al generar QR');
+      console.error('🔴 Error al obtener QR:', error);
+      console.error('🔴 Error nombre:', error.name);
+      console.error('🔴 Error mensaje:', error.message);
+      console.error('🔴 Error stack:', error.stack);
+      alert('Error al generar QR: ' + (error.message || error.toString()));
     }
   };
 
@@ -77,21 +104,21 @@ function ActivoCard({ activo, onEdit }) {
           onClick={handleShowQR}
           title="Ver código QR"
         >
-          📱
+          <QrCode size={18} />
         </button>
         <button 
           className="btn-edit" 
           onClick={(e) => { e.stopPropagation(); onEdit(activo); }} 
           title="Editar"
         >
-          ✏️
+          <Edit size={18} />
         </button>
         <button 
           className="btn-delete" 
           onClick={(e) => handleDelete(e, activo.serial_number)} 
           title="Eliminar"
         >
-          🗑️
+          <Trash2 size={18} />
         </button>
       </div>
     </div>
@@ -137,11 +164,11 @@ function ActivosListSimple({ onEdit, onBack }) {
     <div className="activos-list">
       <div className="list-header">
         <button className="back-btn" onClick={onBack}>← Volver</button>
-        <h2>📋 Listado de Activos</h2>
+        <h2><List size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Listado de Activos</h2>
       </div>
       <div className="filters-bar">
-        <input type="text" placeholder="🔍 Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
-        <button className="refresh-btn" onClick={loadActivos}>🔄 Actualizar</button>
+        <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
+        <button className="refresh-btn" onClick={loadActivos}><RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Actualizar</button>
       </div>
       <div className="results-count">Mostrando {filteredActivos.length} de {activos.length} activos</div>
       {filteredActivos.length === 0 ? (
@@ -149,7 +176,7 @@ function ActivosListSimple({ onEdit, onBack }) {
       ) : (
         <div className="activos-grid">
           {filteredActivos.map((activo) => (
-            <ActivoCard key={activo.id} activo={activo} onEdit={onEdit} />
+            <ActivoCard key={activo.serial_number || activo.id} activo={activo} onEdit={onEdit} />
           ))}
         </div>
       )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Edit, Plus, AlertTriangle, CheckCircle, Download, List } from 'lucide-react';
 import './ActivoForm.css';
 
 function ActivoForm({ activo, onBack }) {
@@ -56,7 +57,7 @@ function ActivoForm({ activo, onBack }) {
     
     // Validaciones del frontend
     if (!formData.numero_serie.trim() || formData.numero_serie.trim().length < 3) {
-      alert('⚠️ El número de serie es OBLIGATORIO y debe tener al menos 3 caracteres');
+      alert('El número de serie es OBLIGATORIO y debe tener al menos 3 caracteres');
       return;
     }
 
@@ -179,7 +180,7 @@ function ActivoForm({ activo, onBack }) {
         <button className="back-btn" onClick={onBack}>
           ← Volver
         </button>
-        <h2>{activo ? '✏️ Editar Activo' : '➕ Nuevo Activo'}</h2>
+        <h2>{activo ? <><Edit size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Editar Activo</> : <><Plus size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Nuevo Activo</>}</h2>
       </div>
 
       <div className="form-container">
@@ -312,7 +313,7 @@ function ActivoForm({ activo, onBack }) {
             borderRadius: '12px',
             textAlign: 'center'
           }}>
-            <h3 style={{ color: '#16a34a', marginBottom: '15px' }}>✅ Activo creado exitosamente</h3>
+            <h3 style={{ color: '#16a34a', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><CheckCircle size={24} />Activo creado exitosamente</h3>
             <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px', color: '#2563eb' }}>
               {assetId}
             </p>
@@ -356,7 +357,7 @@ function ActivoForm({ activo, onBack }) {
                   fontWeight: 'bold'
                 }}
               >
-                📥 Descargar QR
+                <Download size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Descargar QR
               </button>
               <button 
                 onClick={() => {
@@ -375,7 +376,7 @@ function ActivoForm({ activo, onBack }) {
                   fontWeight: 'bold'
                 }}
               >
-                ➕ Crear Otro Activo
+                <Plus size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Crear Otro Activo
               </button>
               <button 
                 onClick={onBack} 
@@ -391,7 +392,7 @@ function ActivoForm({ activo, onBack }) {
                   fontWeight: 'bold'
                 }}
               >
-                📋 Ver Listado
+                <List size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Ver Listado
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
@@ -13,11 +14,11 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Configuración HTTPS
-const httpsOptions = {
+// Configuración HTTPS (solo en producción)
+const httpsOptions = NODE_ENV === 'production' ? {
   key: fs.readFileSync(path.join(__dirname, '../../key.pem')),
   cert: fs.readFileSync(path.join(__dirname, '../../cert.pem'))
-};
+} : null;
 
 // =====================================================
 // CONFIGURACIÓN DE MIDDLEWARES
@@ -40,15 +41,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Servir archivos estáticos (códigos QR)
 app.use('/qr_codes', express.static(path.join(__dirname, '../../public/qr_codes')));
 
-// Servir el frontend de React desde el build
-const frontendBuildPath = path.join(__dirname, '../frontend/build');
+// Definir rutas del frontend (necesarias más abajo)
+const frontendBuildPath = path.join(__dirname, '../../build');
 const frontendPublicPath = path.join(__dirname, '../../public');
 
+// Servir el frontend de React (tanto en desarrollo como producción)
 // Si existe el build de React, servirlo
 if (require('fs').existsSync(frontendBuildPath)) {
+  console.log('📦 Sirviendo frontend desde build/');
   app.use(express.static(frontendBuildPath));
 } else {
-  // Si no existe el build, servir desde public como fallback
+  console.log('📦 Build no encontrado, servir desde public/');
   app.use(express.static(frontendPublicPath));
 }
 
@@ -180,8 +183,7 @@ app.post('/api/db-backup', async (req, res, next) => {
 // MANEJADORES DE ERROR
 // =====================================================
 
-// Ruta catch-all: devolver index.html para todas las rutas que no sean API
-// Esto permite que React Router maneje las rutas del frontend
+// Ruta catch-all: devolver index.html para todas las rutas del frontend
 app.get('*', (req, res) => {
   if (require('fs').existsSync(path.join(frontendBuildPath, 'index.html'))) {
     res.sendFile(path.join(frontendBuildPath, 'index.html'));
@@ -219,39 +221,58 @@ const startServer = async () => {
   try {
     await testDatabaseConnection();
 
-    // Crear servidor HTTPS
-    const httpsServer = https.createServer(httpsOptions, app);
-
-    // Escuchar en 0.0.0.0 para permitir acceso desde otros dispositivos en la red
-    httpsServer.listen(PORT, '0.0.0.0', () => {
-      const os = require('os');
-      const networkInterfaces = os.networkInterfaces();
-      let localIP = 'localhost';
-      
-      // Obtener la IP local de la red
-      for (const name of Object.keys(networkInterfaces)) {
-        for (const iface of networkInterfaces[name]) {
-          if (iface.family === 'IPv4' && !iface.internal) {
-            localIP = iface.address;
-            break;
-          }
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    let localIP = 'localhost';
+    
+    // Obtener la IP local de la red
+    for (const name of Object.keys(networkInterfaces)) {
+      for (const iface of networkInterfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          localIP = iface.address;
+          break;
         }
       }
-      
-      console.log('');
-      console.log('================================================');
-      console.log(`🚀 Servidor HTTPS Express iniciado exitosamente`);
-      console.log(`================================================`);
-      console.log(`🔒 URL Local: https://localhost:${PORT}`);
-      console.log(`📱 URL Red Local: https://${localIP}:${PORT}`);
-      console.log(`🌍 Entorno: ${NODE_ENV}`);
-      console.log(`📊 API: https://${localIP}:${PORT}/api/assets`);
-      console.log(`❤️  Health: https://${localIP}:${PORT}/api/health`);
-      console.log('================================================');
-      console.log('⚠️  IMPORTANTE: Acepta el certificado autofirmado en tu navegador');
-      console.log('================================================');
-      console.log('');
-    });
+    }
+
+    // Usar HTTP en desarrollo, HTTPS en producción
+    if (NODE_ENV === 'production' && httpsOptions) {
+      // Crear servidor HTTPS
+      const httpsServer = https.createServer(httpsOptions, app);
+      httpsServer.listen(PORT, '0.0.0.0', () => {
+        console.log('');
+        console.log('================================================');
+        console.log(`🚀 Servidor HTTPS Express iniciado exitosamente`);
+        console.log(`================================================`);
+        console.log(`🔒 URL Local: https://localhost:${PORT}`);
+        console.log(`📱 URL Red Local: https://${localIP}:${PORT}`);
+        console.log(`🌍 Entorno: ${NODE_ENV}`);
+        console.log(`📊 API: https://${localIP}:${PORT}/api/assets`);
+        console.log(`❤️  Health: https://${localIP}:${PORT}/api/health`);
+        console.log('================================================');
+        console.log('⚠️  IMPORTANTE: Acepta el certificado autofirmado en tu navegador');
+        console.log('================================================');
+        console.log('');
+      });
+    } else {
+      // Crear servidor HTTP para desarrollo
+      const httpServer = http.createServer(app);
+      httpServer.listen(PORT, '0.0.0.0', () => {
+        console.log('');
+        console.log('================================================');
+        console.log(`🚀 Servidor HTTP Express iniciado exitosamente`);
+        console.log(`================================================`);
+        console.log(`🔓 URL Local: http://localhost:${PORT}`);
+        console.log(`📱 URL Red Local: http://${localIP}:${PORT}`);
+        console.log(`🌍 Entorno: ${NODE_ENV}`);
+        console.log(`📊 API: http://${localIP}:${PORT}/api/assets`);
+        console.log(`❤️  Health: http://${localIP}:${PORT}/api/health`);
+        console.log('================================================');
+        console.log('💡 Usando HTTP en desarrollo para compatibilidad con proxy');
+        console.log('================================================');
+        console.log('');
+      });
+    }
   } catch (error) {
     console.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { generateQRCode } from '../services/api';
+import { X, Download, Printer, Copy, AlertTriangle } from 'lucide-react';
 import styles from './QRGenerator.module.css';
 
 const QRGenerator = ({ asset, onClose }) => {
@@ -200,7 +201,7 @@ const QRGenerator = ({ asset, onClose }) => {
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <button className={styles.closeBtn} onClick={onClose}>
-          ✕
+          <X size={24} />
         </button>
 
         <div className={styles.header}>
@@ -215,7 +216,7 @@ const QRGenerator = ({ asset, onClose }) => {
           </div>
         ) : error ? (
           <div className={styles.error}>
-            <p>⚠ {error}</p>
+            <p><AlertTriangle size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{error}</p>
             <button onClick={loadQR} className={styles.retryBtn}>
               Reintentar
             </button>
@@ -264,15 +265,15 @@ const QRGenerator = ({ asset, onClose }) => {
 
             <div className={styles.actions}>
               <button onClick={handleDownload} className={styles.btnDownload}>
-                <span>⬇</span>
+                <Download size={18} />
                 Descargar PNG
               </button>
               <button onClick={handlePrint} className={styles.btnPrint}>
-                <span>🖨</span>
+                <Printer size={18} />
                 Imprimir
               </button>
               <button onClick={handleCopyURL} className={styles.btnCopy}>
-                <span>📋</span>
+                <Copy size={18} />
                 Copiar URL
               </button>
             </div>

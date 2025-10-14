@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { QrCode, Download, X } from 'lucide-react';
 
 function QRModal({ qrData, onClose }) {
   useEffect(() => {
@@ -44,7 +45,8 @@ function QRModal({ qrData, onClose }) {
   };
 
   const handleBackdropClick = (e) => {
-    // NO hacer nada - el modal solo se cierra con el botón
+    // NO cerrar el modal al hacer click en el fondo - solo con el botón
+    e.preventDefault();
     e.stopPropagation();
   };
 
@@ -102,7 +104,7 @@ function QRModal({ qrData, onClose }) {
               lineHeight: 1
             }}
           >
-            ✕
+            <X size={24} />
           </button>
         </div>
 
@@ -112,7 +114,7 @@ function QRModal({ qrData, onClose }) {
           fontSize: '24px',
           fontWeight: 'bold'
         }}>
-          📱 Código QR del Activo
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}><QrCode size={24} />Código QR del Activo</div>
         </h2>
         
         <div style={{ 
@@ -190,7 +192,7 @@ function QRModal({ qrData, onClose }) {
             onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
           >
-            📥 Descargar QR
+            <Download size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Descargar QR
           </button>
           <button 
             type="button"

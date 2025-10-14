@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Package, Home, List, Plus, Camera } from 'lucide-react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import ActivosListSimple from './components/ActivosListSimple';
@@ -42,33 +43,33 @@ function App() {
     <div className="App">
       <header className="app-header">
         <div className="header-content">
-          <h1 onClick={() => handleViewChange('dashboard')} style={{ cursor: 'pointer' }}>
-            📦 Inventario Cielo
+          <h1 onClick={() => handleViewChange('dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Package size={28} /> Inventario Cielo
           </h1>
           <nav className="main-nav">
             <button 
               className={currentView === 'dashboard' ? 'active' : ''} 
               onClick={() => handleViewChange('dashboard')}
             >
-              🏠 Dashboard
+              <Home size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Dashboard
             </button>
             <button 
               className={currentView === 'list' ? 'active' : ''} 
               onClick={() => handleViewChange('list')}
             >
-              📋 Activos
+              <List size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Activos
             </button>
             <button 
               className={currentView === 'new' ? 'active' : ''} 
               onClick={() => handleViewChange('new')}
             >
-              ➕ Nuevo
+              <Plus size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Nuevo
             </button>
             <button 
               className={currentView === 'scanner' ? 'active' : ''} 
               onClick={() => handleViewChange('scanner')}
             >
-              📷 Escanear QR
+              <Camera size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Escanear QR
             </button>
           </nav>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { getAssetByAssetId } from '../services/api';
+import { X, Check, Camera, AlertTriangle } from 'lucide-react';
 import styles from './QRScannerNew.module.css';
 
 const QRScannerNew = ({ onAssetFound, onClose }) => {
@@ -213,7 +214,7 @@ const QRScannerNew = ({ onAssetFound, onClose }) => {
       <div className={styles.header}>
         <h2>Escanear Codigo QR</h2>
         <button onClick={onClose} className={styles.closeBtn}>
-          ✕
+          <X size={24} />
         </button>
       </div>
 
@@ -270,7 +271,7 @@ const QRScannerNew = ({ onAssetFound, onClose }) => {
               
               {scanSuccess && (
                 <div className={styles.scanIndicator}>
-                  <div className={styles.checkmark}>✓</div>
+                  <div className={styles.checkmark}><Check size={24} /></div>
                   <span>Codigo detectado</span>
                 </div>
               )}
@@ -302,7 +303,7 @@ const QRScannerNew = ({ onAssetFound, onClose }) => {
                 id="qr-file-input"
               />
               <label htmlFor="qr-file-input" className={styles.uploadLabel}>
-                <div className={styles.uploadIcon}>📷</div>
+                <div className={styles.uploadIcon}><Camera size={48} /></div>
                 <p>Haz clic para seleccionar una imagen</p>
                 <span>o arrastra y suelta aqui</span>
               </label>
@@ -324,7 +325,7 @@ const QRScannerNew = ({ onAssetFound, onClose }) => {
         {/* Error de busqueda */}
         {error && !loading && (
           <div className={styles.errorResult}>
-            <div className={styles.errorIcon}>⚠</div>
+            <div className={styles.errorIcon}><AlertTriangle size={32} /></div>
             <p>{error}</p>
             <button onClick={handleRestart} className={styles.btnRetry}>
               Intentar de nuevo

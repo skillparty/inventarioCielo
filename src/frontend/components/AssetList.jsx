@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, searchAssets, deleteAsset } from '../services/api';
+import { AlertTriangle, X } from 'lucide-react';
 import styles from './AssetList.module.css';
 
 const AssetList = ({ onEdit, onViewQR }) => {
@@ -130,7 +131,7 @@ const AssetList = ({ onEdit, onViewQR }) => {
               onClick={() => setSearchTerm('')}
               className={styles.clearButton}
             >
-              ✕
+              <X size={16} />
             </button>
           )}
         </div>
@@ -138,7 +139,7 @@ const AssetList = ({ onEdit, onViewQR }) => {
 
       {error && (
         <div className={styles.error}>
-          <span>⚠️ {error}</span>
+          <span><AlertTriangle size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{error}</span>
           <button onClick={() => loadAssets(currentPage)}>Reintentar</button>
         </div>
       )}

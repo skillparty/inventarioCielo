@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getDashboardStats, exportToCSV, createBackup } from '../services/api';
+import { BarChart3, Package, Calendar, TrendingUp, MapPin, Plus, Camera, Download, Save, RefreshCw, AlertTriangle, CheckCircle, User, Clock, X } from 'lucide-react';
 import styles from './DashboardNew.module.css';
 
 const DashboardNew = ({ onNavigate }) => {
@@ -31,9 +32,9 @@ const DashboardNew = ({ onNavigate }) => {
     try {
       setExporting(true);
       await exportToCSV();
-      alert('✅ Inventario exportado exitosamente');
+      alert('Inventario exportado exitosamente');
     } catch (err) {
-      alert('❌ Error al exportar inventario');
+      alert('Error al exportar inventario');
       console.error('Error exporting:', err);
     } finally {
       setExporting(false);
@@ -44,9 +45,9 @@ const DashboardNew = ({ onNavigate }) => {
     try {
       setBacking(true);
       const response = await createBackup();
-      alert(`✅ Backup creado exitosamente\n\n📁 ${response.backup.filename}\n📊 ${response.backup.sizeFormatted}`);
+      alert(`Backup creado exitosamente\n\n${response.backup.filename}\n${response.backup.sizeFormatted}`);
     } catch (err) {
-      alert('❌ Error al crear backup de la base de datos');
+      alert('Error al crear backup de la base de datos');
       console.error('Error creating backup:', err);
     } finally {
       setBacking(false);
@@ -68,7 +69,7 @@ const DashboardNew = ({ onNavigate }) => {
     return (
       <div className={styles.container}>
         <div className={styles.error}>
-          <p>⚠ {error}</p>
+          <p><AlertTriangle size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />{error}</p>
           <button onClick={loadStats} className={styles.retryBtn}>
             Reintentar
           </button>
@@ -82,18 +83,18 @@ const DashboardNew = ({ onNavigate }) => {
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <h1>📊 Dashboard de Inventario</h1>
+          <h1><BarChart3 size={28} style={{ verticalAlign: 'middle', marginRight: '10px' }} />Dashboard de Inventario</h1>
           <p className={styles.subtitle}>Resumen general del sistema</p>
         </div>
         <button onClick={loadStats} className={styles.refreshBtn}>
-          🔄 Actualizar
+          <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Actualizar
         </button>
       </div>
 
       {/* Estadísticas principales */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
-          <div className={styles.statIcon}>📦</div>
+          <div className={styles.statIcon}><Package size={32} /></div>
           <div className={styles.statInfo}>
             <h3>Total de Activos</h3>
             <p className={styles.statValue}>{stats?.total || 0}</p>
@@ -101,7 +102,7 @@ const DashboardNew = ({ onNavigate }) => {
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statIcon}>📅</div>
+          <div className={styles.statIcon}><Calendar size={32} /></div>
           <div className={styles.statInfo}>
             <h3>Esta Semana</h3>
             <p className={styles.statValue}>{stats?.thisWeek || 0}</p>
@@ -110,7 +111,7 @@ const DashboardNew = ({ onNavigate }) => {
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statIcon}>📈</div>
+          <div className={styles.statIcon}><TrendingUp size={32} /></div>
           <div className={styles.statInfo}>
             <h3>Este Mes</h3>
             <p className={styles.statValue}>{stats?.thisMonth || 0}</p>
@@ -119,7 +120,7 @@ const DashboardNew = ({ onNavigate }) => {
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statIcon}>📍</div>
+          <div className={styles.statIcon}><MapPin size={32} /></div>
           <div className={styles.statInfo}>
             <h3>Ubicaciones</h3>
             <p className={styles.statValue}>{stats?.byLocation?.length || 0}</p>
@@ -133,19 +134,19 @@ const DashboardNew = ({ onNavigate }) => {
         <h2>Acciones Rápidas</h2>
         <div className={styles.actionsGrid}>
           <button onClick={() => onNavigate?.('create')} className={styles.actionBtn}>
-            <span className={styles.actionIcon}>➕</span>
+            <span className={styles.actionIcon}><Plus size={20} /></span>
             <span>Nuevo Activo</span>
           </button>
           <button onClick={() => onNavigate?.('scan')} className={styles.actionBtn}>
-            <span className={styles.actionIcon}>📷</span>
+            <span className={styles.actionIcon}><Camera size={20} /></span>
             <span>Escanear QR</span>
           </button>
           <button onClick={handleExportCSV} className={styles.actionBtn} disabled={exporting}>
-            <span className={styles.actionIcon}>📥</span>
+            <span className={styles.actionIcon}><Download size={20} /></span>
             <span>{exporting ? 'Exportando...' : 'Exportar CSV'}</span>
           </button>
           <button onClick={handleBackup} className={styles.actionBtn} disabled={backing}>
-            <span className={styles.actionIcon}>💾</span>
+            <span className={styles.actionIcon}><Save size={20} /></span>
             <span>{backing ? 'Creando...' : 'Backup DB'}</span>
           </button>
         </div>
@@ -155,7 +156,7 @@ const DashboardNew = ({ onNavigate }) => {
       <div className={styles.chartsContainer}>
         {/* Activos por ubicación */}
         <div className={styles.chartCard}>
-          <h2>📍 Activos por Ubicación</h2>
+          <h2><MapPin size={20} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Activos por Ubicación</h2>
           {stats?.byLocation && stats.byLocation.length > 0 ? (
             <div className={styles.barChart}>
               {stats.byLocation.map((item, index) => {
@@ -183,7 +184,7 @@ const DashboardNew = ({ onNavigate }) => {
 
         {/* Top responsables */}
         <div className={styles.chartCard}>
-          <h2>👤 Top Responsables</h2>
+          <h2><User size={20} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Top Responsables</h2>
           {stats?.byResponsible && stats.byResponsible.length > 0 ? (
             <div className={styles.list}>
               {stats.byResponsible.map((item, index) => (
@@ -204,7 +205,7 @@ const DashboardNew = ({ onNavigate }) => {
 
       {/* Activos recientes */}
       <div className={styles.recentSection}>
-        <h2>🕒 Activos Recientes</h2>
+        <h2><Clock size={20} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Activos Recientes</h2>
         {stats?.recent && stats.recent.length > 0 ? (
           <div className={styles.recentGrid}>
             {stats.recent.map((asset) => (
@@ -224,8 +225,8 @@ const DashboardNew = ({ onNavigate }) => {
                     : asset.description}
                 </p>
                 <div className={styles.recentFooter}>
-                  <span>📍 {asset.location || 'N/A'}</span>
-                  <span>👤 {asset.responsible || 'N/A'}</span>
+                  <span><MapPin size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{asset.location || 'N/A'}</span>
+                  <span><User size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{asset.responsible || 'N/A'}</span>
                 </div>
               </div>
             ))}

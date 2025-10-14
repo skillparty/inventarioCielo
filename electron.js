@@ -11,7 +11,7 @@ const fs = require('fs');
 let mainWindow;
 let backendProcess = null;
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
-const FRONTEND_PORT = 3000;
+const FRONTEND_PORT = 7030;
 
 // =====================================================
 // CONFIGURACION DE VENTANA PRINCIPAL

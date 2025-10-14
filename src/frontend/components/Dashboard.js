@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, checkHealth } from '../services/api';
+import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search } from 'lucide-react';
 import './Dashboard.css';
 
 function Dashboard({ onViewChange }) {
@@ -33,14 +34,14 @@ function Dashboard({ onViewChange }) {
       
       if (data.success) {
         setBackendStatus('online');
-        addDebug('2. ✅ Health check OK');
+        addDebug('2. [OK] Health check OK');
       } else {
         setBackendStatus('offline');
-        addDebug('2. ❌ Health check inválido: ' + JSON.stringify(data));
+        addDebug('2. [ERROR] Health check inválido: ' + JSON.stringify(data));
       }
     } catch (error) {
       setBackendStatus('offline');
-      addDebug('2. ❌ Error health check: ' + error.message);
+      addDebug('2. [ERROR] Error health check: ' + error.message);
     }
   };
 
@@ -68,10 +69,10 @@ function Dashboard({ onViewChange }) {
         mantenimiento: activosMantenimiento,
         valorTotal: valorTotal,
       });
-      addDebug(`5. ✅ ${activos.length} activos cargados correctamente`);
+      addDebug(`5. [OK] ${activos.length} activos cargados correctamente`);
     } catch (error) {
       console.error('Error al cargar datos del dashboard:', error);
-      addDebug('5. ❌ Error al cargar activos: ' + error.message);
+      addDebug('5. [ERROR] Error al cargar activos: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ function Dashboard({ onViewChange }) {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h2>📊 Dashboard de Inventario</h2>
+        <h2><BarChart3 size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Dashboard de Inventario</h2>
         <div className={`status-badge ${backendStatus}`}>
           <span className="status-dot"></span>
           Backend: {backendStatus === 'online' ? 'Conectado' : 'Desconectado'}
@@ -113,7 +114,7 @@ function Dashboard({ onViewChange }) {
           fontSize: '11px',
           wordBreak: 'break-all'
         }}>
-          <strong>🔍 Debug Log:</strong>
+          <strong><Search size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }} />Debug Log:</strong>
           {debugInfo.map((msg, i) => (
             <div key={i} style={{ marginTop: '4px' }}>{msg}</div>
           ))}
@@ -122,7 +123,7 @@ function Dashboard({ onViewChange }) {
 
       <div className="stats-grid">
         <div className="stat-card total">
-          <div className="stat-icon">📦</div>
+          <div className="stat-icon"><Package size={32} /></div>
           <div className="stat-content">
             <h3>{stats.total}</h3>
             <p>Total de Activos</p>
@@ -130,7 +131,7 @@ function Dashboard({ onViewChange }) {
         </div>
 
         <div className="stat-card activos">
-          <div className="stat-icon">✅</div>
+          <div className="stat-icon"><CheckCircle size={32} /></div>
           <div className="stat-content">
             <h3>{stats.activos}</h3>
             <p>Activos</p>
@@ -138,7 +139,7 @@ function Dashboard({ onViewChange }) {
         </div>
 
         <div className="stat-card inactivos">
-          <div className="stat-icon">⚠️</div>
+          <div className="stat-icon"><AlertTriangle size={32} /></div>
           <div className="stat-content">
             <h3>{stats.inactivos}</h3>
             <p>Inactivos</p>
@@ -146,7 +147,7 @@ function Dashboard({ onViewChange }) {
         </div>
 
         <div className="stat-card mantenimiento">
-          <div className="stat-icon">🔧</div>
+          <div className="stat-icon"><Wrench size={32} /></div>
           <div className="stat-content">
             <h3>{stats.mantenimiento}</h3>
             <p>En Mantenimiento</p>
@@ -154,7 +155,7 @@ function Dashboard({ onViewChange }) {
         </div>
 
         <div className="stat-card valor">
-          <div className="stat-icon">💰</div>
+          <div className="stat-icon"><DollarSign size={32} /></div>
           <div className="stat-content">
             <h3>{formatCurrency(stats.valorTotal)}</h3>
             <p>Valor Total</p>
@@ -163,22 +164,22 @@ function Dashboard({ onViewChange }) {
       </div>
 
       <div className="quick-actions">
-        <h3>⚡ Acciones Rápidas</h3>
+        <h3><Zap size={20} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Acciones Rápidas</h3>
         <div className="actions-grid">
           <button className="action-btn" onClick={() => onViewChange('list')}>
-            <span className="action-icon">📋</span>
+            <span className="action-icon"><List size={20} /></span>
             <span>Ver Todos los Activos</span>
           </button>
           <button className="action-btn" onClick={() => onViewChange('new')}>
-            <span className="action-icon">➕</span>
+            <span className="action-icon"><Plus size={20} /></span>
             <span>Registrar Nuevo Activo</span>
           </button>
           <button className="action-btn" onClick={() => onViewChange('scanner')}>
-            <span className="action-icon">📷</span>
+            <span className="action-icon"><Camera size={20} /></span>
             <span>Escanear Código QR</span>
           </button>
           <button className="action-btn" onClick={loadDashboardData}>
-            <span className="action-icon">🔄</span>
+            <span className="action-icon"><RefreshCw size={20} /></span>
             <span>Actualizar Datos</span>
           </button>
         </div>

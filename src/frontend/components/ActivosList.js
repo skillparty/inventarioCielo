@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, deleteAsset, generateQRCode } from '../services/api';
+import { List, Search, RefreshCw, QrCode, Edit, Trash2, Download, X } from 'lucide-react';
 import './ActivosList.css';
 
 function ActivosList({ onEdit, onBack }) {
@@ -134,13 +135,13 @@ function ActivosList({ onEdit, onBack }) {
         <button className="back-btn" onClick={onBack}>
           ← Volver
         </button>
-        <h2>📋 Listado de Activos</h2>
+        <h2><List size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Listado de Activos</h2>
       </div>
 
       <div className="filters-bar">
         <input
           type="text"
-          placeholder="🔍 Buscar por ID, descripción, ubicación o responsable..."
+          placeholder="Buscar por ID, descripción, ubicación o responsable..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="search-input"
@@ -155,7 +156,7 @@ function ActivosList({ onEdit, onBack }) {
         </select>
 
         <button className="refresh-btn" onClick={loadActivos}>
-          🔄 Actualizar
+          <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Actualizar
         </button>
       </div>
 
@@ -170,7 +171,7 @@ function ActivosList({ onEdit, onBack }) {
       ) : (
         <div className="activos-grid">
           {filteredActivos.map((activo) => (
-            <div key={activo.id} className="activo-card">
+            <div key={activo.serial_number || activo.asset_id || activo.id} className="activo-card">
               <div className="activo-header">
                 <h3>{activo.asset_id}</h3>
                 <span className="estado-badge activo">
@@ -234,7 +235,7 @@ function ActivosList({ onEdit, onBack }) {
                         marginRight: '10px'
                       }}
                     >
-                      📥 Descargar QR
+                      <Download size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Descargar QR
                     </button>
                     <button
                       type="button"
@@ -276,7 +277,7 @@ function ActivosList({ onEdit, onBack }) {
                   }}
                   title={expandedQR[activo.id] ? "Ocultar código QR" : "Ver código QR"}
                 >
-                  {expandedQR[activo.id] ? '❌' : '📱'}
+                  {expandedQR[activo.id] ? <X size={18} /> : <QrCode size={18} />}
                 </button>
                 <button 
                   className="btn-edit" 
@@ -286,7 +287,7 @@ function ActivosList({ onEdit, onBack }) {
                   }}
                   title="Editar"
                 >
-                  ✏️
+                  <Edit size={18} />
                 </button>
                 <button 
                   className="btn-delete" 
@@ -296,7 +297,7 @@ function ActivosList({ onEdit, onBack }) {
                   }}
                   title="Eliminar"
                 >
-                  🗑️
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>

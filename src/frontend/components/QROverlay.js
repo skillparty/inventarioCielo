@@ -1,8 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { QrCode, Download, X } from 'lucide-react';
 
 // Función para mostrar el QR en un overlay global
 export function showQROverlay(qrData) {
+  console.log('🟢 showQROverlay llamado con:', qrData);
+  
+  // Verificar si ya existe un overlay y eliminarlo
+  const existingOverlay = document.getElementById('qr-overlay-root');
+  if (existingOverlay) {
+    console.log('⚠️ Overlay existente encontrado, eliminándolo');
+    hideQROverlay();
+  }
+  
   // Crear el contenedor del overlay
   const overlayDiv = document.createElement('div');
   overlayDiv.id = 'qr-overlay-root';
@@ -20,13 +30,24 @@ export function showQROverlay(qrData) {
   `;
   
   document.body.appendChild(overlayDiv);
+  console.log('✅ Overlay agregado al DOM');
   
   // Prevenir scroll del body
   document.body.style.overflow = 'hidden';
   
   // Crear el componente de overlay
   const QROverlayContent = () => {
-    const handleDownload = () => {
+    const [isReady, setIsReady] = React.useState(false);
+    
+    React.useEffect(() => {
+      // Evitar que clicks inmediatos cierren el modal
+      const timer = setTimeout(() => setIsReady(true), 300);
+      return () => clearTimeout(timer);
+    }, []);
+    
+    const handleDownload = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const link = document.createElement('a');
       link.href = qrData.qr.dataURL;
       link.download = `QR_${qrData.asset_id}.png`;
@@ -35,23 +56,46 @@ export function showQROverlay(qrData) {
       document.body.removeChild(link);
     };
     
-    const handleClose = () => {
+    const handleClose = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      console.log('🔴 handleClose llamado');
       hideQROverlay();
+    };
+
+    const handleBackdropClick = (e) => {
+      // NO cerrar al hacer click en el fondo - solo con el botón X
+      e.stopPropagation();
     };
     
     return (
       <div
         style={{
-          backgroundColor: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          maxWidth: '500px',
-          textAlign: 'center',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          position: 'relative'
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleBackdropClick}
       >
+        <div
+          style={{
+            backgroundColor: 'white',
+            padding: '40px',
+            borderRadius: '16px',
+            maxWidth: '500px',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            position: 'relative'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <button
           onClick={handleClose}
           style={{
@@ -67,11 +111,11 @@ export function showQROverlay(qrData) {
             lineHeight: 1
           }}
         >
-          ✕
+          <X size={28} />
         </button>
         
         <h2 style={{ marginBottom: '25px', color: '#1f2937', fontSize: '24px', fontWeight: 'bold' }}>
-          📱 Código QR del Activo
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}><QrCode size={24} />Código QR del Activo</div>
         </h2>
         
         <div style={{
@@ -137,7 +181,7 @@ export function showQROverlay(qrData) {
               boxShadow: '0 2px 4px rgba(37,99,235,0.3)'
             }}
           >
-            📥 Descargar QR
+            <Download size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Descargar QR
           </button>
           <button
             onClick={handleClose}
@@ -156,6 +200,7 @@ export function showQROverlay(qrData) {
             Cerrar
           </button>
         </div>
+        </div>
       </div>
     );
   };
@@ -169,12 +214,16 @@ export function showQROverlay(qrData) {
 }
 
 export function hideQROverlay() {
+  console.log('🔴 hideQROverlay llamado');
   const overlayDiv = document.getElementById('qr-overlay-root');
   if (overlayDiv) {
+    console.log('🔴 Eliminando overlay del DOM');
     if (overlayDiv._root) {
       overlayDiv._root.unmount();
     }
     overlayDiv.remove();
     document.body.style.overflow = 'unset';
+  } else {
+    console.log('⚠️ No se encontró overlay para eliminar');
   }
 }

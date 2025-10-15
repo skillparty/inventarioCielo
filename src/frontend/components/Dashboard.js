@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, checkHealth } from '../services/api';
-import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search } from 'lucide-react';
+import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search, FileDown } from 'lucide-react';
+import { exportAssetsToPDF } from '../utils/pdfExporter';
 import './Dashboard.css';
 
 function Dashboard({ onViewChange }) {
@@ -14,6 +15,7 @@ function Dashboard({ onViewChange }) {
   const [backendStatus, setBackendStatus] = useState('checking');
   const [loading, setLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState([]);
+  const [allAssets, setAllAssets] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -57,10 +59,10 @@ function Dashboard({ onViewChange }) {
       
       const activos = response.data;
 
-      const activosActivos = activos.filter(a => a.estado === 'Activo').length;
-      const activosInactivos = activos.filter(a => a.estado === 'Inactivo').length;
-      const activosMantenimiento = activos.filter(a => a.estado === 'Mantenimiento').length;
-      const valorTotal = activos.reduce((sum, a) => sum + (parseFloat(a.valor) || 0), 0);
+      const activosActivos = activos.filter(a => a.status === 'Activo').length;
+      const activosInactivos = activos.filter(a => a.status === 'Inactivo').length;
+      const activosMantenimiento = activos.filter(a => a.status === 'Mantenimiento').length;
+      const valorTotal = activos.reduce((sum, a) => sum + (parseFloat(a.value) || 0), 0);
 
       setStats({
         total: activos.length,
@@ -69,6 +71,7 @@ function Dashboard({ onViewChange }) {
         mantenimiento: activosMantenimiento,
         valorTotal: valorTotal,
       });
+      setAllAssets(activos); // Guardar todos los activos para exportación
       addDebug(`5. [OK] ${activos.length} activos cargados correctamente`);
     } catch (error) {
       console.error('Error al cargar datos del dashboard:', error);
@@ -83,6 +86,21 @@ function Dashboard({ onViewChange }) {
       style: 'currency',
       currency: 'MXN'
     }).format(value);
+  };
+
+  const handleExportPDF = () => {
+    if (allAssets.length === 0) {
+      alert('No hay activos para exportar');
+      return;
+    }
+    
+    try {
+      const filename = exportAssetsToPDF(allAssets, stats);
+      console.log('PDF generado:', filename);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      alert('Error al generar el PDF. Por favor, intenta nuevamente.');
+    }
   };
 
   if (loading) {
@@ -177,6 +195,10 @@ function Dashboard({ onViewChange }) {
           <button className="action-btn" onClick={() => onViewChange('scanner')}>
             <span className="action-icon"><Camera size={20} /></span>
             <span>Escanear Código QR</span>
+          </button>
+          <button className="action-btn export-btn" onClick={handleExportPDF}>
+            <span className="action-icon"><FileDown size={20} /></span>
+            <span>Exportar PDF</span>
           </button>
           <button className="action-btn" onClick={loadDashboardData}>
             <span className="action-icon"><RefreshCw size={20} /></span>

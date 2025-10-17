@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, checkHealth } from '../services/api';
-import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search, FileDown } from 'lucide-react';
+import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search, FileDown, MapPin, User } from 'lucide-react';
 import { exportAssetsToPDF } from '../utils/pdfExporter';
 import './Dashboard.css';
 
@@ -28,11 +28,10 @@ function Dashboard({ onViewChange }) {
 
   const checkBackendStatus = async () => {
     try {
-      addDebug('1. Conectando a: ' + window.location.origin + '/api/health');
+      addDebug('1. Conectando al backend...');
       
-      // Usar fetch directamente (más simple)
-      const response = await fetch('/api/health');
-      const data = await response.json();
+      // Usar la función checkHealth del api.js que ya tiene la configuración correcta
+      const data = await checkHealth();
       
       if (data.success) {
         setBackendStatus('online');
@@ -49,11 +48,10 @@ function Dashboard({ onViewChange }) {
 
   const loadDashboardData = async () => {
     try {
-      addDebug('3. Cargando activos desde /api/assets...');
+      addDebug('3. Cargando activos desde el backend...');
       
-      // Usar fetch directamente en lugar de axios
-      const fetchResponse = await fetch('/api/assets?page=1&limit=100');
-      const response = await fetchResponse.json();
+      // Usar la función getAssets del api.js que ya tiene la configuración correcta
+      const response = await getAssets(1, 100);
       
       addDebug('4. Respuesta: ' + JSON.stringify(response).substring(0, 80) + '...');
       
@@ -203,6 +201,14 @@ function Dashboard({ onViewChange }) {
           <button className="action-btn" onClick={loadDashboardData}>
             <span className="action-icon"><RefreshCw size={20} /></span>
             <span>Actualizar Datos</span>
+          </button>
+          <button className="action-btn" onClick={() => onViewChange('locations')}>
+            <span className="action-icon"><MapPin size={20} /></span>
+            <span>Gestionar Ubicaciones</span>
+          </button>
+          <button className="action-btn" onClick={() => onViewChange('responsibles')}>
+            <span className="action-icon"><User size={20} /></span>
+            <span>Gestionar Responsables</span>
           </button>
         </div>
       </div>

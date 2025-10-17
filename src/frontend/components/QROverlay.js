@@ -13,61 +13,69 @@ export function showQROverlay(qrData) {
     hideQROverlay();
   }
   
-  // Crear el contenedor del overlay
+  // Crear el contenedor del overlay DIRECTAMENTE en el body, no como child del app
   const overlayDiv = document.createElement('div');
   overlayDiv.id = 'qr-overlay-root';
+  overlayDiv.setAttribute('data-overlay', 'true');
   overlayDiv.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(0, 0, 0, 0.9) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 2147483647 !important;
+    pointer-events: auto !important;
   `;
   
+  // NO agregar listeners que bloqueen todos los eventos
+  // Los eventos serán manejados por React dentro del componente
+  
+  // Agregar al body COMO ÚLTIMO ELEMENTO
   document.body.appendChild(overlayDiv);
-  console.log('✅ Overlay agregado al DOM');
+  console.log('✅ Overlay agregado al DOM como último elemento del body');
   
   // Prevenir scroll del body
+  const originalOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
+  overlayDiv._originalOverflow = originalOverflow;
   
   // Crear el componente de overlay
   const QROverlayContent = () => {
-    const [isReady, setIsReady] = React.useState(false);
-    
-    React.useEffect(() => {
-      // Evitar que clicks inmediatos cierren el modal
-      const timer = setTimeout(() => setIsReady(true), 300);
-      return () => clearTimeout(timer);
-    }, []);
-    
     const handleDownload = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('💾 Descargando QR');
       const link = document.createElement('a');
       link.href = qrData.qr.dataURL;
       link.download = `QR_${qrData.asset_id}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      console.log('✅ Descarga iniciada');
     };
     
     const handleClose = (e) => {
+      console.log('🔴 handleClose llamado');
       if (e) {
         e.preventDefault();
         e.stopPropagation();
       }
-      console.log('🔴 handleClose llamado');
+      console.log('✅ Cerrando overlay...');
       hideQROverlay();
     };
 
     const handleBackdropClick = (e) => {
-      // NO cerrar al hacer click en el fondo - solo con el botón X
-      e.stopPropagation();
+      // Solo cerrar si se hace click directamente en el backdrop, no en el contenido
+      if (e.target === e.currentTarget) {
+        console.log('🔵 Click en backdrop - cerrando');
+        handleClose(e);
+      }
     };
     
     return (
@@ -128,6 +136,7 @@ export function showQROverlay(qrData) {
           <img
             src={qrData.qr.dataURL}
             alt="QR Code"
+            crossOrigin="anonymous"
             style={{
               maxWidth: '300px',
               width: '100%',
@@ -136,6 +145,10 @@ export function showQROverlay(qrData) {
               backgroundColor: 'white',
               padding: '15px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}
+            onError={(e) => {
+              console.error('🔴 Error al cargar imagen QR');
+              e.target.style.display = 'none';
             }}
           />
         </div>
@@ -218,11 +231,22 @@ export function hideQROverlay() {
   const overlayDiv = document.getElementById('qr-overlay-root');
   if (overlayDiv) {
     console.log('🔴 Eliminando overlay del DOM');
+    
+    // Restaurar overflow original
+    if (overlayDiv._originalOverflow !== undefined) {
+      document.body.style.overflow = overlayDiv._originalOverflow;
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Desmontar React
     if (overlayDiv._root) {
       overlayDiv._root.unmount();
     }
+    
+    // Remover del DOM
     overlayDiv.remove();
-    document.body.style.overflow = 'unset';
+    console.log('✅ Overlay eliminado completamente');
   } else {
     console.log('⚠️ No se encontró overlay para eliminar');
   }

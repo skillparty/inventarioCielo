@@ -15,6 +15,43 @@ const {
 } = require('../utils/qrCode');
 
 // =====================================================
+// FUNCIONES AUXILIARES
+// =====================================================
+
+/**
+ * Genera un número de serie único con formato: 3 letras + 4 números (ej: ABC1234)
+ */
+async function generateSerialNumber() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let serialNumber;
+  let exists = true;
+  
+  // Intentar hasta encontrar un número de serie único
+  while (exists) {
+    // Generar 3 letras aleatorias
+    let randomLetters = '';
+    for (let i = 0; i < 3; i++) {
+      randomLetters += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    
+    // Generar 4 números aleatorios
+    const randomNumbers = Math.floor(1000 + Math.random() * 9000); // Número entre 1000 y 9999
+    
+    serialNumber = `${randomLetters}${randomNumbers}`;
+    
+    // Verificar si ya existe
+    const result = await db.query(
+      'SELECT serial_number FROM assets WHERE serial_number = $1',
+      [serialNumber]
+    );
+    
+    exists = result.rows.length > 0;
+  }
+  
+  return serialNumber;
+}
+
+// =====================================================
 // RUTAS DE LA API PARA ASSETS (SERIAL_NUMBER COMO PRIMARY KEY)
 // =====================================================
 
@@ -146,27 +183,29 @@ router.get('/:serial_number', asyncHandler(async (req, res) => {
 /**
  * POST /api/assets
  * Crear nuevo activo
- * Body: { serial_number (REQUERIDO), description, responsible, location, category?, value? }
+ * Body: { name?, description, responsible, location, category?, value?, status? }
+ * El serial_number se genera automáticamente (formato: ABC1234)
  */
 router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
-  const { serial_number, description, responsible, location, category, value } = req.body;
+  let { serial_number, name, description, responsible, location, category, value, status } = req.body;
 
-  // Validar que serial_number sea obligatorio
+  // Si no se proporciona serial_number, generar uno automáticamente
   if (!serial_number || serial_number.trim() === '') {
-    throw new ApiError(400, 'El número de serie es obligatorio');
+    serial_number = await generateSerialNumber();
+    console.log(`✅ Número de serie generado automáticamente: ${serial_number}`);
+  } else {
+    // Si se proporciona, verificar que no exista ya
+    const existingAsset = await db.query(
+      'SELECT serial_number FROM assets WHERE serial_number = $1',
+      [serial_number]
+    );
+
+    if (existingAsset.rows.length > 0) {
+      throw new ApiError(409, `Ya existe un activo con el número de serie: ${serial_number}`);
+    }
   }
 
   dbLogger.logQuery('INSERT', 'assets', `serial_number="${serial_number}"`);
-
-  // Verificar que el serial_number no exista ya
-  const existingAsset = await db.query(
-    'SELECT serial_number FROM assets WHERE serial_number = $1',
-    [serial_number]
-  );
-
-  if (existingAsset.rows.length > 0) {
-    throw new ApiError(409, `Ya existe un activo con el número de serie: ${serial_number}`);
-  }
 
   // Generar y guardar código QR como archivo PNG (usando el serial_number)
   const qrResult = await generateQRCode(serial_number);
@@ -174,17 +213,17 @@ router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
   // Insertar activo en la base de datos
   const result = await db.query(
     `INSERT INTO assets (
-      serial_number, description, responsible, location, qr_code_path, category, value
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      serial_number, name, description, responsible, location, qr_code_path, category, value, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
     RETURNING *`,
-    [serial_number, description, responsible, location, qrResult.filePath, category || null, value || 0]
+    [serial_number, name || null, description, responsible, location, qrResult.filePath, category || null, value || 0, status || 'Activo']
   );
 
   dbLogger.logSuccess('INSERT', result);
 
   res.status(201).json({
     success: true,
-    message: 'Activo creado exitosamente',
+    message: `Activo creado exitosamente con número de serie: ${serial_number}`,
     data: result.rows[0],
     qr: {
       filePath: qrResult.filePath,
@@ -198,17 +237,23 @@ router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
  * PUT /api/assets/:serial_number
  * Actualizar activo
  * Params: serial_number
- * Body: { description?, responsible?, location?, category?, value? } - Al menos uno requerido
+ * Body: { name?, description?, responsible?, location?, category?, value?, status? } - Al menos uno requerido
  * NOTA: El serial_number NO se puede cambiar (es PRIMARY KEY)
  */
 router.put('/:serial_number', validateAssetUpdate, asyncHandler(async (req, res) => {
   const { serial_number } = req.params;
-  const { description, responsible, location, category, value } = req.body;
+  const { name, description, responsible, location, category, value, status } = req.body;
 
   // Construir query dinámica solo con campos proporcionados
   const updates = [];
   const params = [];
   let paramCount = 1;
+
+  if (name !== undefined) {
+    updates.push(`name = $${paramCount}`);
+    params.push(name);
+    paramCount++;
+  }
 
   if (description !== undefined) {
     updates.push(`description = $${paramCount}`);
@@ -237,6 +282,12 @@ router.put('/:serial_number', validateAssetUpdate, asyncHandler(async (req, res)
   if (value !== undefined) {
     updates.push(`value = $${paramCount}`);
     params.push(value);
+    paramCount++;
+  }
+
+  if (status !== undefined) {
+    updates.push(`status = $${paramCount}`);
+    params.push(status);
     paramCount++;
   }
 

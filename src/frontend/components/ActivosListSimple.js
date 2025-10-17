@@ -1,47 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { showQROverlay } from './QROverlay';
 import { QrCode, Edit, Trash2, List, Search, RefreshCw } from 'lucide-react';
+import { getAssets, generateQRCode, deleteAsset } from '../services/api';
 import './ActivosList.css';
 
 // Componente de tarjeta de activo aislado para manejar sus propios eventos
 function ActivoCard({ activo, onEdit }) {
+  const qrButtonRef = React.useRef(null);
 
-  const handleShowQR = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleShowQR = React.useCallback(async () => {
     console.log('🔵 handleShowQR llamado para:', activo.serial_number);
+    
+    // Prevenir cualquier navegación durante los próximos 3 segundos
+    const preventNavigation = (e) => {
+      console.log('⚠️ Navegación bloqueada temporalmente');
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+    
+    window.addEventListener('beforeunload', preventNavigation);
+    window.addEventListener('popstate', preventNavigation);
+    
+    const clearNavigationBlock = () => {
+      window.removeEventListener('beforeunload', preventNavigation);
+      window.removeEventListener('popstate', preventNavigation);
+    };
+    
+    setTimeout(clearNavigationBlock, 3000); // Limpiar después de 3 segundos
     
     try {
       console.log('🔵 Generando QR para:', activo.serial_number);
-      // Usar fetch directamente con serial_number
-      const response = await fetch(`/api/assets/${activo.serial_number}/generate-qr`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Usar la función del api.js que tiene la configuración correcta
+      const data = await generateQRCode(activo.serial_number);
       
-      console.log('🔵 Response status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('🔴 Error del servidor:', errorText);
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
       console.log('🔵 Respuesta del servidor:', data);
       
       if (data && data.success && data.qr && data.qr.dataURL) {
-        console.log('🟢 Mostrando QR overlay');
-        // Pequeño delay para asegurar que el evento de click termine
-        setTimeout(() => {
+        console.log('🟢 QR recibido, mostrando overlay inmediatamente...');
+        try {
           showQROverlay({
             ...data,
             asset_id: activo.serial_number
           });
-        }, 100);
+          console.log('✅ showQROverlay ejecutado exitosamente');
+        } catch (overlayError) {
+          console.error('🔴 Error al mostrar overlay:', overlayError);
+        }
       } else {
         console.error('🔴 Error: respuesta inválida del servidor', data);
         alert('Error al generar QR');
@@ -51,19 +56,85 @@ function ActivoCard({ activo, onEdit }) {
       console.error('🔴 Error nombre:', error.name);
       console.error('🔴 Error mensaje:', error.message);
       console.error('🔴 Error stack:', error.stack);
-      alert('Error al generar QR: ' + (error.message || error.toString()));
+      
+      // Si es error de CORS/Network, intentar usar el fallback
+      if (error.name === 'AxiosError' || error.message.includes('Network')) {
+        console.log('⚠️ Error de red detectado, esto es esperado debido al tamaño del base64');
+        alert('El código QR existe pero hay un problema al cargarlo. Por favor, intenta de nuevo.');
+      } else {
+        alert('Error al generar QR: ' + (error.message || error.toString()));
+      }
+    } finally {
+      clearNavigationBlock();
     }
-  };
+  }, [activo.serial_number]);
+
+  // Usar evento nativo del DOM en lugar de React event
+  React.useEffect(() => {
+    const button = qrButtonRef.current;
+    if (!button) {
+      console.log('⚠️ No se encontró referencia al botón QR');
+      return;
+    }
+
+    console.log('✅ Botón QR encontrado, agregando listeners');
+
+    const stopAllPropagation = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return false;
+    };
+
+    const handleClick = (e) => {
+      console.log('🔵 Click nativo capturado en botón QR');
+      console.log('🔵 Tipo de evento:', e.type);
+      console.log('🔵 Target:', e.target);
+      console.log('🔵 CurrentTarget:', e.currentTarget);
+      
+      stopAllPropagation(e);
+      
+      console.log('🟡 Llamando a handleShowQR en 100ms...');
+      
+      // Llamar a la función después de un pequeño delay para asegurar que el evento termine
+      setTimeout(() => {
+        console.log('🟡 Ejecutando handleShowQR AHORA');
+        try {
+          handleShowQR();
+        } catch (err) {
+          console.error('🔴 Error en handleShowQR:', err);
+        }
+      }, 100);
+      
+      return false;
+    };
+
+    // Agregar listener nativo con capture: true para interceptar ANTES que React
+    button.addEventListener('click', handleClick, { capture: true, passive: false });
+    button.addEventListener('mousedown', stopAllPropagation, { capture: true, passive: false });
+    button.addEventListener('mouseup', stopAllPropagation, { capture: true, passive: false });
+    button.addEventListener('touchstart', stopAllPropagation, { capture: true, passive: false });
+    button.addEventListener('touchend', stopAllPropagation, { capture: true, passive: false });
+    
+    // Prevenir que el botón actúe como link
+    button.style.cursor = 'pointer';
+    button.setAttribute('type', 'button');
+
+    return () => {
+      button.removeEventListener('click', handleClick, { capture: true });
+      button.removeEventListener('mousedown', stopAllPropagation, { capture: true });
+      button.removeEventListener('mouseup', stopAllPropagation, { capture: true });
+      button.removeEventListener('touchstart', stopAllPropagation, { capture: true });
+      button.removeEventListener('touchend', stopAllPropagation, { capture: true });
+    };
+  }, [handleShowQR]);
 
   const handleDelete = async (e, serialNumber) => {
     e.stopPropagation();
     if (window.confirm(`¿Eliminar activo ${serialNumber}?`)) {
       try {
-        // Usar fetch directamente con serial_number
-        const response = await fetch(`/api/assets/${serialNumber}`, {
-          method: 'DELETE'
-        });
-        const data = await response.json();
+        // Usar la función del api.js que tiene la configuración correcta
+        const data = await deleteAsset(serialNumber);
         
         if (data.success) {
           alert('Activo eliminado');
@@ -86,8 +157,13 @@ function ActivoCard({ activo, onEdit }) {
   return (
     <div className="activo-card">
       <div className="activo-header">
-        <h3>{activo.serial_number}</h3>
-        <span className="estado-badge activo">Activo</span>
+        <div>
+          <h3>{activo.name || activo.serial_number}</h3>
+          <p style={{ fontSize: '14px', color: '#666', margin: '4px 0 0 0' }}>
+            <strong>S/N:</strong> {activo.serial_number}
+          </p>
+        </div>
+        <span className="estado-badge activo">{activo.status || 'Activo'}</span>
       </div>
       
       <div className="activo-body">
@@ -99,9 +175,9 @@ function ActivoCard({ activo, onEdit }) {
 
       <div className="activo-actions">
         <button 
+          ref={qrButtonRef}
           type="button" 
           className="btn-qr" 
-          onClick={handleShowQR}
           title="Ver código QR"
         >
           <QrCode size={18} />
@@ -133,10 +209,9 @@ function ActivosListSimple({ onEdit, onBack }) {
   const loadActivos = async () => {
     setLoading(true);
     try {
-      // Usar fetch directamente en lugar de axios
-      const response = await fetch('/api/assets?page=1&limit=100');
-      const data = await response.json();
-      setActivos(data.data);
+      // Usar la función del api.js que tiene la configuración correcta
+      const response = await getAssets(1, 100);
+      setActivos(response.data);
     } catch (error) {
       console.error('Error al cargar activos:', error);
       alert('Error al cargar activos.');
@@ -150,10 +225,11 @@ function ActivosListSimple({ onEdit, onBack }) {
   }, []);
 
   const filteredActivos = activos.filter(activo =>
-    (activo.asset_id?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (activo.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (activo.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (activo.location?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (activo.responsible?.toLowerCase().includes(searchTerm.toLowerCase()))
+    (activo.responsible?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (activo.category?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {

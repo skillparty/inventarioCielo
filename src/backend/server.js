@@ -6,6 +6,8 @@ const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
 const assetsRoutes = require('./routes/assets');
+const locationsRoutes = require('./routes/locations');
+const responsiblesRoutes = require('./routes/responsibles');
 const db = require('./database/db');
 const { requestLogger } = require('./middleware/logger');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
@@ -14,11 +16,11 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Configuración HTTPS (solo en producción)
-const httpsOptions = NODE_ENV === 'production' ? {
+// Configuración HTTPS (en desarrollo y producción para soportar acceso a cámara desde dispositivos móviles)
+const httpsOptions = {
   key: fs.readFileSync(path.join(__dirname, '../../key.pem')),
   cert: fs.readFileSync(path.join(__dirname, '../../cert.pem'))
-} : null;
+};
 
 // =====================================================
 // CONFIGURACIÓN DE MIDDLEWARES
@@ -26,13 +28,40 @@ const httpsOptions = NODE_ENV === 'production' ? {
 
 // CORS configurado para permitir acceso desde cualquier dispositivo en la red local
 const corsOptions = {
-  origin: true, // Permite cualquier origen en desarrollo
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origin (como Postman) y cualquier localhost
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // En desarrollo, permitir todo
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Disposition'],
+  credentials: true,
+  maxAge: 86400, // 24 horas
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
+
+// Agregar headers CORS manualmente como backup
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Expose-Headers', 'Content-Disposition');
+  
+  // Manejar preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
 
 // Parser de JSON y URL-encoded
 app.use(express.json({ limit: '10mb' }));
@@ -63,6 +92,8 @@ app.use(requestLogger);
 // =====================================================
 
 app.use('/api/assets', assetsRoutes);
+app.use('/api/locations', locationsRoutes);
+app.use('/api/responsibles', responsiblesRoutes);
 
 // =====================================================
 // RUTAS DE SISTEMA
@@ -235,44 +266,24 @@ const startServer = async () => {
       }
     }
 
-    // Usar HTTP en desarrollo, HTTPS en producción
-    if (NODE_ENV === 'production' && httpsOptions) {
-      // Crear servidor HTTPS
-      const httpsServer = https.createServer(httpsOptions, app);
-      httpsServer.listen(PORT, '0.0.0.0', () => {
-        console.log('');
-        console.log('================================================');
-        console.log(`🚀 Servidor HTTPS Express iniciado exitosamente`);
-        console.log(`================================================`);
-        console.log(`🔒 URL Local: https://localhost:${PORT}`);
-        console.log(`📱 URL Red Local: https://${localIP}:${PORT}`);
-        console.log(`🌍 Entorno: ${NODE_ENV}`);
-        console.log(`📊 API: https://${localIP}:${PORT}/api/assets`);
-        console.log(`❤️  Health: https://${localIP}:${PORT}/api/health`);
-        console.log('================================================');
-        console.log('⚠️  IMPORTANTE: Acepta el certificado autofirmado en tu navegador');
-        console.log('================================================');
-        console.log('');
-      });
-    } else {
-      // Crear servidor HTTP para desarrollo
-      const httpServer = http.createServer(app);
-      httpServer.listen(PORT, '0.0.0.0', () => {
-        console.log('');
-        console.log('================================================');
-        console.log(`🚀 Servidor HTTP Express iniciado exitosamente`);
-        console.log(`================================================`);
-        console.log(`🔓 URL Local: http://localhost:${PORT}`);
-        console.log(`📱 URL Red Local: http://${localIP}:${PORT}`);
-        console.log(`🌍 Entorno: ${NODE_ENV}`);
-        console.log(`📊 API: http://${localIP}:${PORT}/api/assets`);
-        console.log(`❤️  Health: http://${localIP}:${PORT}/api/health`);
-        console.log('================================================');
-        console.log('💡 Usando HTTP en desarrollo para compatibilidad con proxy');
-        console.log('================================================');
-        console.log('');
-      });
-    }
+    // Usar HTTPS siempre (requerido para acceso a cámara desde dispositivos móviles)
+    const httpsServer = https.createServer(httpsOptions, app);
+    httpsServer.listen(PORT, '0.0.0.0', () => {
+      console.log('');
+      console.log('================================================');
+      console.log(`🚀 Servidor HTTPS Express iniciado exitosamente`);
+      console.log(`================================================`);
+      console.log(`🔒 URL Local: https://localhost:${PORT}`);
+      console.log(`📱 URL Red Local: https://${localIP}:${PORT}`);
+      console.log(`🌍 Entorno: ${NODE_ENV}`);
+      console.log(`📊 API: https://${localIP}:${PORT}/api/assets`);
+      console.log(`❤️  Health: https://${localIP}:${PORT}/api/health`);
+      console.log('================================================');
+      console.log('⚠️  IMPORTANTE: Acepta el certificado autofirmado en tu navegador');
+      console.log('📱 Para usar la cámara desde tu celular, acepta el certificado');
+      console.log('================================================');
+      console.log('');
+    });
   } catch (error) {
     console.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);

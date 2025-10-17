@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { Camera, Search, RefreshCw, Square, X, CheckCircle } from 'lucide-react';
+import { getAssetByAssetId } from '../services/api';
 import './QRScanner.css';
 
 function QRScanner({ onBack }) {
@@ -24,6 +25,11 @@ function QRScanner({ onBack }) {
     setError(null);
 
     try {
+      // Verificar si la API de medios está disponible
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('La cámara requiere HTTPS. Accede desde https://' + window.location.hostname + ':3000');
+      }
+      
       // Primero pedir permisos explícitamente
       console.log('Solicitando permisos de cámara...');
       
@@ -94,9 +100,8 @@ function QRScanner({ onBack }) {
 
   const buscarActivo = async (codigoQR) => {
     try {
-      // Usar fetch directamente
-      const fetchResponse = await fetch(`/api/assets/qr/${encodeURIComponent(codigoQR)}`);
-      const response = await fetchResponse.json();
+      // Usar la función del api.js que tiene la configuración correcta
+      const response = await getAssetByAssetId(codigoQR);
       
       if (response.success && response.data) {
         // Mapear campos del backend al formato esperado por el componente

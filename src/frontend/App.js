@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 import ActivosListSimple from './components/ActivosListSimple';
 import ActivoForm from './components/ActivoForm';
 import QRScanner from './components/QRScanner';
+import LocationsManager from './components/LocationsManager';
+import ResponsiblesManager from './components/ResponsiblesManager';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -34,6 +36,10 @@ function App() {
         return <ActivoForm activo={selectedActivo} onBack={() => handleViewChange('list')} />;
       case 'scanner':
         return <QRScanner onBack={() => handleViewChange('dashboard')} />;
+      case 'locations':
+        return <LocationsManager onBack={() => handleViewChange('dashboard')} />;
+      case 'responsibles':
+        return <ResponsiblesManager onBack={() => handleViewChange('dashboard')} />;
       default:
         return <Dashboard onViewChange={handleViewChange} />;
     }

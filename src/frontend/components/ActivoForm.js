@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Plus, AlertTriangle, CheckCircle, Download, List } from 'lucide-react';
+import { getLocations, getResponsibles, createAsset, updateAsset } from '../services/api';
 import './ActivoForm.css';
 
 function ActivoForm({ activo, onBack }) {
@@ -12,26 +13,52 @@ function ActivoForm({ activo, onBack }) {
     numero_serie: '',
     valor: '',
     responsable: '',
+    fecha: new Date().toISOString().split('T')[0], // Fecha actual
   });
   const [loading, setLoading] = useState(false);
   const [qrImage, setQrImage] = useState(null);
   const [assetId, setAssetId] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [responsibles, setResponsibles] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
+    loadDropdownData();
     if (activo) {
+      console.log('📝 Cargando activo para editar:', activo);
       // Mapear campos del backend (description, location, responsible) al formulario
+      const fechaActivo = activo.created_at ? new Date(activo.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       setFormData({
-        nombre: activo.asset_id || '',
+        nombre: activo.name || '',
         descripcion: activo.description || '',
-        categoria: '',
+        categoria: activo.category || '',
         ubicacion: activo.location || '',
-        estado: 'Activo',
-        numero_serie: '',
-        valor: '',
+        estado: activo.status || 'Activo',
+        numero_serie: activo.serial_number || '',
+        valor: activo.value || '',
         responsable: activo.responsible || '',
+        fecha: fechaActivo,
       });
+      console.log('✅ FormData cargado para edición');
     }
   }, [activo]);
+
+  const loadDropdownData = async () => {
+    try {
+      setLoadingData(true);
+      const [locationsRes, responsiblesRes] = await Promise.all([
+        getLocations(),
+        getResponsibles()
+      ]);
+      setLocations(locationsRes.data || []);
+      setResponsibles(responsiblesRes.data || []);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      alert('Error al cargar ubicaciones y responsables');
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,23 +83,18 @@ function ActivoForm({ activo, onBack }) {
     e.preventDefault();
     
     // Validaciones del frontend
-    if (!formData.numero_serie.trim() || formData.numero_serie.trim().length < 3) {
-      alert('El número de serie es OBLIGATORIO y debe tener al menos 3 caracteres');
-      return;
-    }
-
     if (!formData.descripcion.trim() || formData.descripcion.trim().length < 10) {
       alert('La descripción es obligatoria y debe tener al menos 10 caracteres');
       return;
     }
 
-    if (!formData.responsable.trim() || formData.responsable.trim().length < 3) {
-      alert('El responsable es obligatorio y debe tener al menos 3 caracteres');
+    if (!formData.responsable.trim()) {
+      alert('Debe seleccionar un responsable');
       return;
     }
 
-    if (!formData.ubicacion.trim() || formData.ubicacion.trim().length < 3) {
-      alert('La ubicación es obligatoria y debe tener al menos 3 caracteres');
+    if (!formData.ubicacion.trim()) {
+      alert('Debe seleccionar una ubicación');
       return;
     }
 
@@ -82,50 +104,37 @@ function ActivoForm({ activo, onBack }) {
       if (activo) {
         // Actualizar - Mapear campos al formato del backend
         const dataToSend = {
+          name: formData.nombre || null,
           description: formData.descripcion,
           responsible: formData.responsable,
           location: formData.ubicacion,
           category: formData.categoria || null,
-          serial_number: formData.numero_serie || null,
-          value: formData.valor ? parseFloat(formData.valor) : 0
+          serial_number: formData.numero_serie,
+          value: formData.valor ? parseFloat(formData.valor) : 0,
+          status: formData.estado
         };
         
-        const fetchResponse = await fetch(`/api/assets/${activo.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(dataToSend)
-        });
-        
-        const response = await fetchResponse.json();
+        const response = await updateAsset(activo.serial_number, dataToSend);
         alert(response.message || 'Activo actualizado exitosamente');
         onBack();
       } else {
-        // Crear nuevo - Mapear campos al formato del backend
+        // Crear nuevo - El serial_number se genera automáticamente en el backend
         const dataToSend = {
-          serial_number: formData.numero_serie, // OBLIGATORIO - PRIMARY KEY
+          name: formData.nombre || null,
           description: formData.descripcion,
           responsible: formData.responsable,
           location: formData.ubicacion,
           category: formData.categoria || null,
-          value: formData.valor ? parseFloat(formData.valor) : 0
+          value: formData.valor ? parseFloat(formData.valor) : 0,
+          status: formData.estado
         };
         
-        const fetchResponse = await fetch('/api/assets', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(dataToSend)
-        });
-        
-        const response = await fetchResponse.json();
+        const response = await createAsset(dataToSend);
         
         // El QR viene en response.qr.dataURL
         if (response.qr && response.qr.dataURL) {
           setQrImage(response.qr.dataURL);
-          setAssetId(response.data.serial_number); // Usar serial_number como identificador
+          setAssetId(response.data.serial_number);
         }
         
         alert(response.message || 'Activo creado exitosamente');
@@ -144,7 +153,7 @@ function ActivoForm({ activo, onBack }) {
       }
     } catch (error) {
       console.error('Error al guardar activo:', error);
-      alert('Error al guardar activo. Verifica los datos e intenta nuevamente.');
+      alert(error.response?.data?.message || 'Error al guardar activo. Verifica los datos e intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -174,6 +183,22 @@ function ActivoForm({ activo, onBack }) {
     'Dado de Baja'
   ];
 
+  if (loadingData) {
+    return (
+      <div className="activo-form">
+        <div className="form-header">
+          <button className="back-btn" onClick={onBack}>
+            ← Volver
+          </button>
+          <h2>Cargando formulario...</h2>
+        </div>
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>Cargando ubicaciones y responsables...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="activo-form">
       <div className="form-header">
@@ -187,7 +212,7 @@ function ActivoForm({ activo, onBack }) {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group">
-              <label htmlFor="nombre">Nombre del Activo *</label>
+              <label htmlFor="nombre">Nombre del Activo</label>
               <input
                 type="text"
                 id="nombre"
@@ -195,7 +220,6 @@ function ActivoForm({ activo, onBack }) {
                 value={formData.nombre}
                 onChange={handleChange}
                 placeholder="Ej: Laptop Dell Latitude"
-                required
               />
             </div>
 
@@ -215,16 +239,17 @@ function ActivoForm({ activo, onBack }) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="ubicacion">Ubicación</label>
+              <label htmlFor="ubicacion">Ubicación *</label>
               <select
                 id="ubicacion"
                 name="ubicacion"
                 value={formData.ubicacion}
                 onChange={handleChange}
+                required
               >
                 <option value="">Seleccionar ubicación</option>
-                {ubicaciones.map(ub => (
-                  <option key={ub} value={ub}>{ub}</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.name}>{loc.name}</option>
                 ))}
               </select>
             </div>
@@ -243,16 +268,52 @@ function ActivoForm({ activo, onBack }) {
               </select>
             </div>
 
+            {activo && (
+              <div className="form-group">
+                <label htmlFor="numero_serie">Número de Serie</label>
+                <input
+                  type="text"
+                  id="numero_serie"
+                  name="numero_serie"
+                  value={formData.numero_serie}
+                  onChange={handleChange}
+                  placeholder="Número de serie"
+                  readOnly
+                  style={{ backgroundColor: '#f5f5f5' }}
+                />
+                <small style={{ color: '#666', fontSize: '12px' }}>El número de serie no se puede modificar</small>
+              </div>
+            )}
+            {!activo && (
+              <div className="form-group">
+                <label htmlFor="numero_serie_info">Número de Serie</label>
+                <div style={{ 
+                  padding: '12px', 
+                  backgroundColor: '#e3f2fd', 
+                  borderRadius: '8px',
+                  border: '2px solid #90caf9',
+                  color: '#1976d2'
+                }}>
+                  <strong>ℹ️ Se generará automáticamente</strong>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                    El número de serie se asignará automáticamente al guardar el activo (formato: ABC1234)
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
-              <label htmlFor="numero_serie">Número de Serie</label>
+              <label htmlFor="fecha">Fecha de Registro</label>
               <input
-                type="text"
-                id="numero_serie"
-                name="numero_serie"
-                value={formData.numero_serie}
+                type="date"
+                id="fecha"
+                name="fecha"
+                value={formData.fecha}
                 onChange={handleChange}
-                placeholder="Ej: DL5420-001"
+                readOnly={!activo}
+                style={{ backgroundColor: activo ? 'white' : '#f5f5f5' }}
               />
+              {!activo && <small style={{ color: '#666', fontSize: '12px' }}>La fecha se registra automáticamente</small>}
             </div>
 
             <div className="form-group">
@@ -270,19 +331,23 @@ function ActivoForm({ activo, onBack }) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="responsable">Responsable</label>
-              <input
-                type="text"
+              <label htmlFor="responsable">Responsable *</label>
+              <select
                 id="responsable"
                 name="responsable"
                 value={formData.responsable}
                 onChange={handleChange}
-                placeholder="Nombre del responsable"
-              />
+                required
+              >
+                <option value="">Seleccionar responsable</option>
+                {responsibles.map(resp => (
+                  <option key={resp.id} value={resp.name}>{resp.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group full-width">
-              <label htmlFor="descripcion">Descripción</label>
+              <label htmlFor="descripcion">Descripción *</label>
               <textarea
                 id="descripcion"
                 name="descripcion"
@@ -290,6 +355,7 @@ function ActivoForm({ activo, onBack }) {
                 onChange={handleChange}
                 placeholder="Descripción detallada del activo"
                 rows="4"
+                required
               />
             </div>
           </div>

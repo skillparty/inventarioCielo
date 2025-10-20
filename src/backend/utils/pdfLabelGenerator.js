@@ -82,7 +82,7 @@ const generatePDFLabel = async (asset) => {
     // --- NOMBRE DEL ACTIVO (título principal) ---
     const assetName = asset.name || 'SIN NOMBRE';
     doc.fillColor('#000000')
-       .fontSize(6)
+       .fontSize(8)
        .font('Helvetica-Bold')
        .text(assetName.toUpperCase(), margin, mmToPts(1), {
          width: mmToPts(38),
@@ -100,7 +100,7 @@ const generatePDFLabel = async (asset) => {
     doc.fontSize(6)
        .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(`Fecha: ${fecha}`, margin, mmToPts(8), {
+       .text(`Fecha: ${fecha}`, margin, mmToPts(9), {
          width: mmToPts(38),
          align: 'center'
        });

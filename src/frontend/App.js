@@ -4,6 +4,7 @@ import './App.css';
 import Dashboard from './components/Dashboard';
 import ActivosListSimple from './components/ActivosListSimple';
 import ActivoForm from './components/ActivoForm';
+import ActivoFormBatch from './components/ActivoFormBatch';
 import QRScanner from './components/QRScanner';
 import LocationsManager from './components/LocationsManager';
 import ResponsiblesManager from './components/ResponsiblesManager';
@@ -33,6 +34,8 @@ function App() {
         return <ActivosListSimple onEdit={handleEditActivo} onBack={() => handleViewChange('dashboard')} />;
       case 'new':
         return <ActivoForm onBack={() => handleViewChange('list')} />;
+      case 'batch':
+        return <ActivoFormBatch onBack={() => handleViewChange('dashboard')} />;
       case 'edit':
         return <ActivoForm activo={selectedActivo} onBack={() => handleViewChange('list')} />;
       case 'scanner':

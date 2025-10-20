@@ -190,88 +190,118 @@ router.get('/:serial_number', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/assets
- * Crear nuevo activo
- * Body: { asset_name_id?, name?, description, responsible, location, category?, value?, status? }
+ * Crear nuevo activo (o múltiples si se especifica quantity)
+ * Body: { asset_name_id?, name?, description, responsible, location, category?, value?, status?, quantity? }
  * El serial_number se genera automáticamente (formato: ABC1234)
  * Si se proporciona asset_name_id, se genera el nombre con contador incremental
  */
 router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
-  let { serial_number, asset_name_id, name, description, responsible, location, category, value, status } = req.body;
+  let { serial_number, asset_name_id, name, description, responsible, location, category, value, status, quantity } = req.body;
 
-  // Si no se proporciona serial_number, generar uno automáticamente
-  if (!serial_number || serial_number.trim() === '') {
-    serial_number = await generateSerialNumber();
-    console.log(`✅ Número de serie generado automáticamente: ${serial_number}`);
+  // Validar cantidad (por defecto 1)
+  const cantidadActivos = quantity && quantity > 1 ? Math.min(parseInt(quantity), 50) : 1;
+  
+  // Array para almacenar los activos creados
+  const activosCreados = [];
+  
+  // Crear los activos (uno o múltiples)
+  for (let i = 0; i < cantidadActivos; i++) {
+    let currentSerialNumber;
+    let currentName = name;
+    
+    // Generar serial_number único
+    if (!serial_number || serial_number.trim() === '' || cantidadActivos > 1) {
+      currentSerialNumber = await generateSerialNumber();
+      console.log(`✅ Número de serie generado automáticamente: ${currentSerialNumber} (${i + 1}/${cantidadActivos})`);
+    } else {
+      currentSerialNumber = serial_number;
+      // Verificar que no exista ya
+      const existingAsset = await db.query(
+        'SELECT serial_number FROM assets WHERE serial_number = $1',
+        [currentSerialNumber]
+      );
+
+      if (existingAsset.rows.length > 0) {
+        throw new ApiError(409, `Ya existe un activo con el número de serie: ${currentSerialNumber}`);
+      }
+    }
+
+    // Si se proporciona asset_name_id, generar nombre con contador incremental
+    if (asset_name_id) {
+      const assetNameResult = await db.query(
+        'SELECT name, counter FROM asset_names WHERE id = $1',
+        [asset_name_id]
+      );
+
+      if (assetNameResult.rows.length === 0) {
+        throw new ApiError(404, 'El nombre de activo seleccionado no existe');
+      }
+
+      const baseName = assetNameResult.rows[0].name;
+      const currentCounter = assetNameResult.rows[0].counter;
+
+      // Generar nombre completo con contador
+      currentName = `${baseName} (${currentCounter})`;
+
+      // Incrementar contador en asset_names
+      await db.query(
+        'UPDATE asset_names SET counter = counter + 1 WHERE id = $1',
+        [asset_name_id]
+      );
+
+      console.log(`✅ Nombre generado con contador: ${currentName}`);
+    }
+
+    dbLogger.logQuery('INSERT', 'assets', `serial_number="${currentSerialNumber}"`);
+
+    // Generar y guardar código QR como archivo PNG (usando el serial_number)
+    const qrResult = await generateQRCode(currentSerialNumber);
+
+    // Generar asset_id con formato: AST-YYYY-NNNN
+    const year = new Date().getFullYear();
+    const countResult = await db.query('SELECT COUNT(*) FROM assets');
+    const assetCount = parseInt(countResult.rows[0].count) + 1;
+    const asset_id = `AST-${year}-${String(assetCount).padStart(4, '0')}`;
+
+    // Insertar activo en la base de datos
+    const result = await db.query(
+      `INSERT INTO assets (
+        serial_number, asset_id, name, description, responsible, location, qr_code_path, category, value, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+      RETURNING *`,
+      [currentSerialNumber, asset_id, currentName || null, description, responsible, location, qrResult.filePath, category || null, value || 0, status || 'Activo']
+    );
+
+    dbLogger.logSuccess('INSERT', result);
+    
+    // Guardar activo creado
+    activosCreados.push({
+      ...result.rows[0],
+      qr: {
+        filePath: qrResult.filePath,
+        fileName: qrResult.fileName,
+        dataURL: qrResult.dataURL
+      }
+    });
+  }
+
+  // Respuesta según cantidad creada
+  if (cantidadActivos === 1) {
+    res.status(201).json({
+      success: true,
+      message: `Activo creado exitosamente con número de serie: ${activosCreados[0].serial_number}`,
+      data: activosCreados[0],
+      qr: activosCreados[0].qr
+    });
   } else {
-    // Si se proporciona, verificar que no exista ya
-    const existingAsset = await db.query(
-      'SELECT serial_number FROM assets WHERE serial_number = $1',
-      [serial_number]
-    );
-
-    if (existingAsset.rows.length > 0) {
-      throw new ApiError(409, `Ya existe un activo con el número de serie: ${serial_number}`);
-    }
+    res.status(201).json({
+      success: true,
+      message: `${cantidadActivos} activos creados exitosamente`,
+      data: activosCreados.map(a => ({ ...a, qr: undefined })), // No enviar base64 de todos los QRs (muy pesado)
+      count: cantidadActivos,
+      qr: activosCreados[0].qr // Solo enviar el QR del primero
+    });
   }
-
-  // Si se proporciona asset_name_id, generar nombre con contador incremental
-  if (asset_name_id) {
-    const assetNameResult = await db.query(
-      'SELECT name, counter FROM asset_names WHERE id = $1',
-      [asset_name_id]
-    );
-
-    if (assetNameResult.rows.length === 0) {
-      throw new ApiError(404, 'El nombre de activo seleccionado no existe');
-    }
-
-    const baseName = assetNameResult.rows[0].name;
-    const currentCounter = assetNameResult.rows[0].counter;
-
-    // Generar nombre completo con contador
-    name = `${baseName} (${currentCounter})`;
-
-    // Incrementar contador en asset_names
-    await db.query(
-      'UPDATE asset_names SET counter = counter + 1 WHERE id = $1',
-      [asset_name_id]
-    );
-
-    console.log(`✅ Nombre generado con contador: ${name}`);
-  }
-
-  dbLogger.logQuery('INSERT', 'assets', `serial_number="${serial_number}"`);
-
-  // Generar y guardar código QR como archivo PNG (usando el serial_number)
-  const qrResult = await generateQRCode(serial_number);
-
-  // Generar asset_id con formato: AST-YYYY-NNNN
-  const year = new Date().getFullYear();
-  const countResult = await db.query('SELECT COUNT(*) FROM assets');
-  const assetCount = parseInt(countResult.rows[0].count) + 1;
-  const asset_id = `AST-${year}-${String(assetCount).padStart(4, '0')}`;
-
-  // Insertar activo en la base de datos
-  const result = await db.query(
-    `INSERT INTO assets (
-      serial_number, asset_id, name, description, responsible, location, qr_code_path, category, value, status
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-    RETURNING *`,
-    [serial_number, asset_id, name || null, description, responsible, location, qrResult.filePath, category || null, value || 0, status || 'Activo']
-  );
-
-  dbLogger.logSuccess('INSERT', result);
-
-  res.status(201).json({
-    success: true,
-    message: `Activo creado exitosamente con número de serie: ${serial_number}`,
-    data: result.rows[0],
-    qr: {
-      filePath: qrResult.filePath,
-      fileName: qrResult.fileName,
-      dataURL: qrResult.dataURL // Base64 para mostrar inmediatamente
-    }
-  });
 }));
 
 /**

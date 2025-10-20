@@ -190,6 +190,10 @@ function Dashboard({ onViewChange }) {
             <span className="action-icon"><Plus size={20} /></span>
             <span>Registrar Nuevo Activo</span>
           </button>
+          <button className="action-btn" onClick={() => onViewChange('batch')} style={{ backgroundColor: '#9b59b6', color: 'white' }}>
+            <span className="action-icon"><Package size={20} /></span>
+            <span>Crear Múltiples Activos</span>
+          </button>
           <button className="action-btn" onClick={() => onViewChange('scanner')}>
             <span className="action-icon"><Camera size={20} /></span>
             <span>Escanear Código QR</span>

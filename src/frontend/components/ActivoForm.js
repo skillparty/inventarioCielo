@@ -15,6 +15,7 @@ function ActivoForm({ activo, onBack }) {
     responsable: '',
     fecha: new Date().toISOString().split('T')[0], // Fecha actual
     asset_name_id: '',
+    cantidad: 1,
   });
   const [loading, setLoading] = useState(false);
   const [qrImage, setQrImage] = useState(null);
@@ -165,6 +166,11 @@ function ActivoForm({ activo, onBack }) {
           dataToSend.name = formData.nombre;
         }
         
+        // Agregar cantidad si es mayor a 1
+        if (formData.cantidad && formData.cantidad > 1) {
+          dataToSend.quantity = parseInt(formData.cantidad);
+        }
+        
         const response = await createAsset(dataToSend);
         
         // El QR viene en response.qr.dataURL
@@ -186,6 +192,7 @@ function ActivoForm({ activo, onBack }) {
           valor: '',
           responsable: '',
           asset_name_id: '',
+          cantidad: 1,
         });
         setPreviewName('');
       }
@@ -289,6 +296,38 @@ function ActivoForm({ activo, onBack }) {
                 )
               )}
             </div>
+
+            {!activo && (
+              <div className="form-group">
+                <label htmlFor="cantidad">
+                  Cantidad
+                  <small style={{ color: '#666', fontSize: '12px', marginLeft: '8px', fontWeight: 'normal' }}>
+                    (Crear múltiples activos a la vez)
+                  </small>
+                </label>
+                <input
+                  type="number"
+                  id="cantidad"
+                  name="cantidad"
+                  value={formData.cantidad}
+                  onChange={handleChange}
+                  min="1"
+                  max="50"
+                  placeholder="1"
+                  style={{
+                    padding: '12px',
+                    fontSize: '15px',
+                    fontWeight: '500',
+                    color: formData.cantidad > 1 ? '#27ae60' : '#2c3e50'
+                  }}
+                />
+                {formData.cantidad > 1 && (
+                  <small style={{ color: '#27ae60', fontSize: '13px', marginTop: '6px', display: 'block', fontWeight: '500' }}>
+                    ✓ Se crearán {formData.cantidad} activos
+                  </small>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="categoria">Categoría</label>

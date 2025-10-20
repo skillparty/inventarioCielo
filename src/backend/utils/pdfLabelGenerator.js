@@ -79,37 +79,67 @@ const generatePDFLabel = async (asset) => {
        .lineWidth(0.5)
        .stroke('#666666');
 
-    // --- TÍTULO SUPERIOR ---
+    // --- TÍTULO PRINCIPAL (más arriba) ---
     doc.fillColor('#000000')
-       .fontSize(6)
+       .fontSize(10)
        .font('Helvetica-Bold')
-       .text('INVENTARIO_CIELO', margin, mmToPts(2), {
+       .text('DOTACION CIELO', margin, mmToPts(2), {
          width: mmToPts(38),
          align: 'center'
        });
 
-    // --- TÍTULO PRINCIPAL ---
-    doc.fontSize(10)
+    // --- FECHA (más grande) ---
+    const fecha = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
+
+    doc.fontSize(8)
        .font('Helvetica-Bold')
-       .text('DOTACION CIELO', margin, mmToPts(6), {
+       .fillColor('#000000')
+       .text(`Fecha: ${fecha}`, margin, mmToPts(6), {
          width: mmToPts(38),
          align: 'center'
        });
 
-    // --- LOGOS ---
+    // --- ENCARGADO (izquierda) ---
+    doc.fontSize(4.5)
+       .font('Helvetica')
+       .text('ENCARGADO:', mmToPts(1), mmToPts(10), {
+         width: mmToPts(16),
+         align: 'left'
+       });
+
+    doc.fontSize(5)
+       .font('Helvetica-Bold')
+       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(12), {
+         width: mmToPts(16),
+         align: 'left',
+         lineBreak: true
+       });
+
+    // --- UBICACIÓN (izquierda, debajo del encargado) ---
+    doc.fontSize(4.5)
+       .font('Helvetica')
+       .text('UBICACIÓN:', mmToPts(1), mmToPts(16), {
+         width: mmToPts(16),
+         align: 'left'
+       });
+
+    doc.fontSize(5)
+       .font('Helvetica-Bold')
+       .text(asset.location || 'N/A', mmToPts(1), mmToPts(18), {
+         width: mmToPts(16),
+         align: 'left',
+         lineBreak: true
+       });
+
+    // --- LOGO (debajo de ubicación, izquierda) ---
     const hasLogo = await logoExists();
     if (hasLogo) {
       try {
-        // Logo izquierdo
-        doc.image(LOGO_PATH, mmToPts(2), mmToPts(10), {
-          width: mmToPts(8),
-          height: mmToPts(8),
-          fit: [mmToPts(8), mmToPts(8)],
-          align: 'center'
-        });
-
-        // Logo derecho
-        doc.image(LOGO_PATH, mmToPts(30), mmToPts(10), {
+        doc.image(LOGO_PATH, mmToPts(4), mmToPts(22), {
           width: mmToPts(8),
           height: mmToPts(8),
           fit: [mmToPts(8), mmToPts(8)],
@@ -120,82 +150,35 @@ const generatePDFLabel = async (asset) => {
       }
     }
 
-    // --- FECHA ---
-    const fecha = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
-
-    doc.fontSize(5)
-       .font('Helvetica')
-       .fillColor('#000000')
-       .text(`Fecha: ${fecha}`, margin, mmToPts(11), {
-         width: mmToPts(38),
-         align: 'center'
-       });
-
-    // --- ENCARGADO (izquierda - debajo del logo) ---
-    doc.fontSize(4.5)
-       .font('Helvetica')
-       .text('ENCARGADO:', mmToPts(1), mmToPts(19), {
-         width: mmToPts(9),
-         align: 'left'
-       });
-
-    doc.fontSize(5)
-       .font('Helvetica-Bold')
-       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(21), {
-         width: mmToPts(9),
-         align: 'left',
-         lineBreak: true
-       });
-
-    // --- CÓDIGO QR (centro) - Tamaño reducido a 16mm ---
+    // --- CÓDIGO QR (derecha) - Tamaño 20mm ---
     try {
       // Verificar si el QR existe
       await fs.promises.access(qrCodePath);
-      doc.image(qrCodePath, mmToPts(12), mmToPts(18), {
-        width: mmToPts(16),
-        height: mmToPts(16),
-        fit: [mmToPts(16), mmToPts(16)]
+      doc.image(qrCodePath, mmToPts(18), mmToPts(10), {
+        width: mmToPts(20),
+        height: mmToPts(20),
+        fit: [mmToPts(20), mmToPts(20)]
       });
     } catch (qrError) {
       console.warn('⚠️ QR Code no encontrado:', qrCodePath);
       // Dibujar un cuadrado placeholder
-      doc.rect(mmToPts(12), mmToPts(18), mmToPts(16), mmToPts(16))
+      doc.rect(mmToPts(18), mmToPts(10), mmToPts(20), mmToPts(20))
          .lineWidth(1)
          .stroke('#CCCCCC');
       
-      doc.fontSize(7)
+      doc.fontSize(8)
          .font('Helvetica')
-         .text('QR N/D', mmToPts(12), mmToPts(24), {
-           width: mmToPts(16),
+         .text('QR N/D', mmToPts(18), mmToPts(18), {
+           width: mmToPts(20),
            align: 'center'
          });
     }
 
-    // --- UBICACIÓN (derecha - debajo del logo) ---
-    doc.fontSize(4.5)
-       .font('Helvetica')
-       .text('UBICACIÓN', mmToPts(30), mmToPts(19), {
-         width: mmToPts(9),
-         align: 'right'
-       });
-
-    doc.fontSize(5)
-       .font('Helvetica-Bold')
-       .text(asset.location || 'N/A', mmToPts(30), mmToPts(21), {
-         width: mmToPts(9),
-         align: 'right',
-         lineBreak: true
-       });
-
-    // --- SERIAL NUMBER (inferior - debajo del QR) ---
+    // --- SERIAL NUMBER (inferior - debajo del QR con más espacio) ---
     doc.fontSize(6)
        .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(asset.serial_number, margin, mmToPts(35), {
+       .text(asset.serial_number, margin, mmToPts(31), {
          width: mmToPts(38),
          align: 'center'
        });

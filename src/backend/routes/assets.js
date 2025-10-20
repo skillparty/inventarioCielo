@@ -13,6 +13,14 @@ const {
   generateQRCode,
   deleteQRCode
 } = require('../utils/qrCode');
+const {
+  generateBarTenderLabel,
+  deleteBartenderLabel
+} = require('../utils/bartenderGenerator');
+const {
+  generatePDFLabel,
+  deletePDFLabel
+} = require('../utils/pdfLabelGenerator');
 
 // =====================================================
 // FUNCIONES AUXILIARES
@@ -396,6 +404,86 @@ router.post('/:serial_number/generate-qr', asyncHandler(async (req, res) => {
       filePath: qrResult.filePath,
       fileName: qrResult.fileName,
       dataURL: qrResult.dataURL
+    }
+  });
+}));
+
+/**
+ * POST /api/assets/:serial_number/generate-label
+ * Generar archivo PDF (WePrint compatible) para un activo
+ * Params: serial_number
+ */
+router.post('/:serial_number/generate-label', asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
+
+  dbLogger.logQuery('GENERATE LABEL', 'assets', `serial_number="${serial_number}"`);
+
+  // Verificar que el activo existe
+  const result = await db.query(
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serial_number]
+  );
+
+  if (result.rows.length === 0) {
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
+  }
+
+  const asset = result.rows[0];
+
+  // Generar código QR si no existe
+  if (!asset.qr_code_path) {
+    const qrResult = await generateQRCode(serial_number);
+    await db.query(
+      'UPDATE assets SET qr_code_path = $1 WHERE serial_number = $2',
+      [qrResult.filePath, serial_number]
+    );
+  }
+
+  // Generar archivo PDF para WePrint
+  const labelResult = await generatePDFLabel(asset);
+
+  dbLogger.logSuccess('GENERATE LABEL', { serial_number });
+
+  res.json({
+    success: true,
+    message: 'Etiqueta PDF generada exitosamente',
+    serial_number: serial_number,
+    label: {
+      filePath: labelResult.filePath,
+      fileName: labelResult.fileName,
+      downloadUrl: `/api/assets/${serial_number}/download-label`
+    }
+  });
+}));
+
+/**
+ * GET /api/assets/:serial_number/download-label
+ * Descargar archivo PDF para un activo
+ * Params: serial_number
+ */
+router.get('/:serial_number/download-label', asyncHandler(async (req, res) => {
+  const { serial_number } = req.params;
+
+  // Verificar que el activo existe
+  const result = await db.query(
+    'SELECT * FROM assets WHERE serial_number = $1',
+    [serial_number]
+  );
+
+  if (result.rows.length === 0) {
+    throw new ApiError(404, `No se encontró ningún activo con el número de serie: ${serial_number}`);
+  }
+
+  const asset = result.rows[0];
+
+  // Generar la etiqueta PDF si no existe
+  const labelResult = await generatePDFLabel(asset);
+
+  // Enviar archivo para descarga
+  res.download(labelResult.fullPath, labelResult.fileName, (err) => {
+    if (err) {
+      console.error('Error al descargar etiqueta:', err);
+      throw new ApiError(500, 'Error al descargar el archivo de etiqueta');
     }
   });
 }));

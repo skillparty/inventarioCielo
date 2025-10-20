@@ -1,18 +1,18 @@
 import axios from 'axios';
 
 // Configuración dinámica de API_URL para acceso multi-dispositivo
-// Si estamos en localhost, usar proxy relativo
+// Si estamos en localhost, usar proxy relativo (vacío)
 // Si estamos en otro dispositivo (IP de red), usar la URL completa del backend
 const getApiUrl = () => {
-  // Si hay una variable de entorno configurada, usarla
-  if (process.env.REACT_APP_API_URL) {
+  // Si hay una variable de entorno configurada y no está vacía, usarla
+  if (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim() !== '') {
     return process.env.REACT_APP_API_URL;
   }
   
-  // Siempre usar la URL completa del backend con HTTPS
-  // Esto es necesario porque el proxy no funciona bien con HTTPS autofirmados
+  // En localhost, usar el proxy (no especificar baseURL)
+  // El proxy en setupProxy.js redirigirá /api a https://localhost:5001
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'https://localhost:5001';
+    return ''; // Vacío para usar proxy relativo
   }
   
   // Si accedemos desde la red (celular u otro dispositivo), 
@@ -110,7 +110,8 @@ export const generateQRCode = async (id) => {
   console.log('🔵 Activo obtenido:', asset);
   
   // Construir URL del QR desde el servidor
-  const qrUrl = asset.qr_code_path ? `${API_URL}${asset.qr_code_path.replace('public', '')}` : null;
+  const baseUrl = API_URL || window.location.origin;
+  const qrUrl = asset.qr_code_path ? `${baseUrl}${asset.qr_code_path.replace('public', '')}` : null;
   
   console.log('🔵 URL del QR:', qrUrl);
   
@@ -139,7 +140,8 @@ export const generateQRCode = async (id) => {
     // Después de generar, obtener el activo de nuevo
     const newAssetResponse = await api.get(`/api/assets/${id}`);
     const newAsset = newAssetResponse.data.data;
-    const newQrUrl = newAsset.qr_code_path ? `${API_URL}${newAsset.qr_code_path.replace('public', '')}` : null;
+    const baseUrl = API_URL || window.location.origin;
+    const newQrUrl = newAsset.qr_code_path ? `${baseUrl}${newAsset.qr_code_path.replace('public', '')}` : null;
     
     if (newQrUrl) {
       return {
@@ -310,6 +312,34 @@ export const updateResponsible = async (id, responsible) => {
 export const deleteResponsible = async (id) => {
   const response = await api.delete(`/api/responsibles/${id}`);
   return response.data;
+};
+
+// =====================================================
+// BARTENDER LABELS API SERVICES
+// =====================================================
+
+/**
+ * Generar etiqueta BarTender (.wdfx) para un activo
+ */
+export const generateBarTenderLabel = async (serialNumber) => {
+  const response = await api.post(`/api/assets/${serialNumber}/generate-label`);
+  return response.data;
+};
+
+/**
+ * Obtener URL de descarga de etiqueta BarTender
+ */
+export const getBarTenderLabelDownloadUrl = (serialNumber) => {
+  const baseUrl = API_URL || window.location.origin;
+  return `${baseUrl}/api/assets/${serialNumber}/download-label`;
+};
+
+/**
+ * Descargar etiqueta BarTender directamente
+ */
+export const downloadBarTenderLabel = async (serialNumber) => {
+  const url = getBarTenderLabelDownloadUrl(serialNumber);
+  window.open(url, '_blank');
 };
 
 export default api;

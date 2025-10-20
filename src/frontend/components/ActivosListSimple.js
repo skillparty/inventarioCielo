@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { showQROverlay } from './QROverlay';
-import { QrCode, Edit, Trash2, List, Search, RefreshCw } from 'lucide-react';
-import { getAssets, generateQRCode, deleteAsset } from '../services/api';
+import { QrCode, Edit, Trash2, List, Search, RefreshCw, Tag } from 'lucide-react';
+import { getAssets, generateQRCode, deleteAsset, downloadBarTenderLabel } from '../services/api';
 import './ActivosList.css';
 
 // Componente de tarjeta de activo aislado para manejar sus propios eventos
@@ -129,6 +129,18 @@ function ActivoCard({ activo, onEdit }) {
     };
   }, [handleShowQR]);
 
+  const handleGenerateLabel = async (e) => {
+    e.stopPropagation();
+    try {
+      console.log('🏷️ Generando etiqueta BarTender para:', activo.serial_number);
+      await downloadBarTenderLabel(activo.serial_number);
+      console.log('✅ Etiqueta descargada');
+    } catch (error) {
+      console.error('🔴 Error al generar etiqueta:', error);
+      alert('Error al generar etiqueta: ' + (error.message || error.toString()));
+    }
+  };
+
   const handleDelete = async (e, serialNumber) => {
     e.stopPropagation();
     if (window.confirm(`¿Eliminar activo ${serialNumber}?`)) {
@@ -181,6 +193,26 @@ function ActivoCard({ activo, onEdit }) {
           title="Ver código QR"
         >
           <QrCode size={18} />
+        </button>
+        <button 
+          type="button"
+          className="btn-label" 
+          onClick={handleGenerateLabel}
+          title="Descargar Etiqueta BarTender"
+          style={{
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '14px'
+          }}
+        >
+          <Tag size={18} />
         </button>
         <button 
           className="btn-edit" 

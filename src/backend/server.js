@@ -67,33 +67,25 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir archivos estáticos (códigos QR)
+// Servir archivos estáticos (códigos QR y etiquetas)
 app.use('/qr_codes', express.static(path.join(__dirname, '../../public/qr_codes')));
-
-// Definir rutas del frontend (necesarias más abajo)
-const frontendBuildPath = path.join(__dirname, '../../build');
-const frontendPublicPath = path.join(__dirname, '../../public');
-
-// Servir el frontend de React (tanto en desarrollo como producción)
-// Si existe el build de React, servirlo
-if (require('fs').existsSync(frontendBuildPath)) {
-  console.log('📦 Sirviendo frontend desde build/');
-  app.use(express.static(frontendBuildPath));
-} else {
-  console.log('📦 Build no encontrado, servir desde public/');
-  app.use(express.static(frontendPublicPath));
-}
+app.use('/labels', express.static(path.join(__dirname, '../../public/labels')));
+app.use('/assets', express.static(path.join(__dirname, '../../public/assets')));
 
 // Logger de peticiones HTTP
 app.use(requestLogger);
 
 // =====================================================
-// RUTAS DE LA API
+// RUTAS DE LA API (ANTES del frontend estático)
 // =====================================================
 
 app.use('/api/assets', assetsRoutes);
 app.use('/api/locations', locationsRoutes);
 app.use('/api/responsibles', responsiblesRoutes);
+
+// Definir rutas del frontend (necesarias más abajo)
+const frontendBuildPath = path.join(__dirname, '../../build');
+const frontendPublicPath = path.join(__dirname, '../../public');
 
 // =====================================================
 // RUTAS DE SISTEMA
@@ -211,22 +203,34 @@ app.post('/api/db-backup', async (req, res, next) => {
 });
 
 // =====================================================
-// MANEJADORES DE ERROR
+// SERVIR FRONTEND ESTÁTICO (SOLO en producción o con build)
 // =====================================================
 
-// Ruta catch-all: devolver index.html para todas las rutas del frontend
-app.get('*', (req, res) => {
-  if (require('fs').existsSync(path.join(frontendBuildPath, 'index.html'))) {
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
-  } else {
-    res.status(404).json({
-      success: false,
-      message: 'Frontend no encontrado. Ejecuta "npm run build" para compilar el frontend.',
-      statusCode: 404,
-      timestamp: new Date().toISOString()
+// En modo desarrollo, el frontend es servido por React Dev Server en puerto 3000/7030
+// Solo servir archivos estáticos si existe el build (modo producción o Electron)
+if (NODE_ENV === 'production' || require('fs').existsSync(frontendBuildPath)) {
+  if (require('fs').existsSync(frontendBuildPath)) {
+    console.log('📦 Sirviendo frontend desde build/');
+    app.use(express.static(frontendBuildPath));
+    
+    // Ruta catch-all: devolver index.html para SPA routing
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    });
+  } else if (NODE_ENV === 'production') {
+    // En producción sin build, devolver error
+    app.get('*', (req, res) => {
+      res.status(404).json({
+        success: false,
+        message: 'Frontend no encontrado. Ejecuta "npm run build" para compilar el frontend.',
+        statusCode: 404,
+        timestamp: new Date().toISOString()
+      });
     });
   }
-});
+} else {
+  console.log('📦 Modo desarrollo: Frontend servido por React Dev Server');
+}
 
 // Manejador global de errores
 app.use(errorHandler);

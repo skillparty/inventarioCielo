@@ -160,10 +160,10 @@ const validatePagination = (req, res, next) => {
   // Validar limit
   if (limit !== undefined) {
     const limitNum = parseInt(limit);
-    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 500) {
       return res.status(400).json({
         success: false,
-        message: 'El parámetro "limit" debe ser un número entre 1 y 100'
+        message: 'El parámetro "limit" debe ser un número entre 1 y 500'
       });
     }
     req.pagination.limit = limitNum;

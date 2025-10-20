@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Plus, AlertTriangle, CheckCircle, Download, List } from 'lucide-react';
-import { getLocations, getResponsibles, createAsset, updateAsset } from '../services/api';
+import { getLocations, getResponsibles, getAssetNames, createAsset, updateAsset } from '../services/api';
 import './ActivoForm.css';
 
 function ActivoForm({ activo, onBack }) {
@@ -14,13 +14,16 @@ function ActivoForm({ activo, onBack }) {
     valor: '',
     responsable: '',
     fecha: new Date().toISOString().split('T')[0], // Fecha actual
+    asset_name_id: '',
   });
   const [loading, setLoading] = useState(false);
   const [qrImage, setQrImage] = useState(null);
   const [assetId, setAssetId] = useState(null);
   const [locations, setLocations] = useState([]);
   const [responsibles, setResponsibles] = useState([]);
+  const [assetNames, setAssetNames] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [previewName, setPreviewName] = useState('');
 
   useEffect(() => {
     loadDropdownData();
@@ -46,26 +49,52 @@ function ActivoForm({ activo, onBack }) {
   const loadDropdownData = async () => {
     try {
       setLoadingData(true);
-      const [locationsRes, responsiblesRes] = await Promise.all([
+      const [locationsRes, responsiblesRes, assetNamesRes] = await Promise.all([
         getLocations(),
-        getResponsibles()
+        getResponsibles(),
+        getAssetNames()
       ]);
       setLocations(locationsRes.data || []);
       setResponsibles(responsiblesRes.data || []);
+      setAssetNames(assetNamesRes.data || []);
     } catch (error) {
       console.error('Error al cargar datos:', error);
-      alert('Error al cargar ubicaciones y responsables');
+      alert('Error al cargar datos del formulario');
     } finally {
       setLoadingData(false);
     }
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: newValue
     }));
+
+    // Si se está escribiendo en el campo nombre, verificar si coincide con un nombre predefinido
+    if (name === 'nombre' && value && assetNames.length > 0) {
+      const matchingAssetName = assetNames.find(an => an.name === value);
+      if (matchingAssetName) {
+        // Si coincide exactamente con un nombre de la lista, guardar el ID
+        setFormData(prev => ({
+          ...prev,
+          nombre: value,
+          asset_name_id: matchingAssetName.id
+        }));
+        setPreviewName(`${matchingAssetName.name} (${matchingAssetName.counter})`);
+      } else {
+        // Si no coincide, limpiar el asset_name_id
+        setFormData(prev => ({
+          ...prev,
+          nombre: value,
+          asset_name_id: ''
+        }));
+        setPreviewName('');
+      }
+    }
   };
 
   const handleDownloadQR = () => {
@@ -120,7 +149,6 @@ function ActivoForm({ activo, onBack }) {
       } else {
         // Crear nuevo - El serial_number se genera automáticamente en el backend
         const dataToSend = {
-          name: formData.nombre || null,
           description: formData.descripcion,
           responsible: formData.responsable,
           location: formData.ubicacion,
@@ -128,6 +156,14 @@ function ActivoForm({ activo, onBack }) {
           value: formData.valor ? parseFloat(formData.valor) : 0,
           status: formData.estado
         };
+        
+        // Si seleccionó un nombre de la lista (tiene asset_name_id), usar el sistema incremental
+        if (formData.asset_name_id) {
+          dataToSend.asset_name_id = parseInt(formData.asset_name_id);
+        } else if (formData.nombre) {
+          // Si escribió un nombre personalizado
+          dataToSend.name = formData.nombre;
+        }
         
         const response = await createAsset(dataToSend);
         
@@ -149,7 +185,9 @@ function ActivoForm({ activo, onBack }) {
           numero_serie: '',
           valor: '',
           responsable: '',
+          asset_name_id: '',
         });
+        setPreviewName('');
       }
     } catch (error) {
       console.error('Error al guardar activo:', error);
@@ -212,15 +250,44 @@ function ActivoForm({ activo, onBack }) {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group">
-              <label htmlFor="nombre">Nombre del Activo</label>
+              <label htmlFor="nombre">
+                Nombre del Activo
+                {!activo && assetNames.length > 0 && (
+                  <small style={{ color: '#666', fontSize: '12px', marginLeft: '8px', fontWeight: 'normal' }}>
+                    (Escribe o selecciona de la lista)
+                  </small>
+                )}
+              </label>
               <input
                 type="text"
                 id="nombre"
                 name="nombre"
                 value={formData.nombre}
                 onChange={handleChange}
+                list="asset-names-list"
                 placeholder="Ej: Laptop Dell Latitude"
+                autoComplete="off"
               />
+              {!activo && assetNames.length > 0 && (
+                <datalist id="asset-names-list">
+                  {assetNames.map(assetName => (
+                    <option key={assetName.id} value={assetName.name}>
+                      Contador actual: {assetName.counter}
+                    </option>
+                  ))}
+                </datalist>
+              )}
+              {previewName ? (
+                <small style={{ color: '#27ae60', fontSize: '13px', marginTop: '6px', display: 'block', fontWeight: '500' }}>
+                  ✓ Se creará como: "{previewName}"
+                </small>
+              ) : (
+                !activo && (
+                  <small style={{ color: '#3498db', fontSize: '12px', marginTop: '6px', display: 'block' }}>
+                    💡 Tip: Si seleccionas un nombre de la lista, se generará automáticamente con numeración incremental
+                  </small>
+                )
+              )}
             </div>
 
             <div className="form-group">

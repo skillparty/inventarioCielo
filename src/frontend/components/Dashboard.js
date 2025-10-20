@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAssets, checkHealth } from '../services/api';
-import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search, FileDown, MapPin, User } from 'lucide-react';
+import { BarChart3, Package, CheckCircle, AlertTriangle, Wrench, DollarSign, Zap, List, Plus, Camera, RefreshCw, Search, FileDown, MapPin, User, Tag } from 'lucide-react';
 import { exportAssetsToPDF } from '../utils/pdfExporter';
 import './Dashboard.css';
 
@@ -209,6 +209,10 @@ function Dashboard({ onViewChange }) {
           <button className="action-btn" onClick={() => onViewChange('responsibles')}>
             <span className="action-icon"><User size={20} /></span>
             <span>Gestionar Responsables</span>
+          </button>
+          <button className="action-btn" onClick={() => onViewChange('assetNames')}>
+            <span className="action-icon"><Tag size={20} /></span>
+            <span>Gestionar Nombres de Activos</span>
           </button>
         </div>
       </div>

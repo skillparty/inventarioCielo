@@ -10,7 +10,7 @@ const { fileLogger } = require('../middleware/logger');
 
 // Directorio donde se guardarán las etiquetas PDF
 const LABELS_DIR = path.join(__dirname, '../../../public/labels');
-const LOGO_PATH = path.join(__dirname, '../../../public/assets/logo-cielo.png');
+const LOGO_PATH = path.join(__dirname, '../../../public/logo-cielo.jpeg');
 
 // Conversión de mm a puntos PDF (1mm = 2.83465 puntos)
 const mmToPts = (mm) => mm * 2.83465;
@@ -84,15 +84,8 @@ const generatePDFLabel = async (asset) => {
        .fontSize(6)
        .font('Helvetica-Bold')
        .text('INVENTARIO_CIELO', margin, mmToPts(2), {
-         width: mmToPts(28),
-         align: 'left'
-       });
-
-    doc.fontSize(5)
-       .font('Helvetica')
-       .text('40 x 40(Mi)', mmToPts(28), mmToPts(2), {
-         width: mmToPts(10),
-         align: 'right'
+         width: mmToPts(38),
+         align: 'center'
        });
 
     // --- TÍTULO PRINCIPAL ---
@@ -134,75 +127,75 @@ const generatePDFLabel = async (asset) => {
       year: '2-digit'
     });
 
-    doc.fontSize(6)
+    doc.fontSize(5)
        .font('Helvetica')
        .fillColor('#000000')
-       .text(`Fecha: ${fecha}`, margin, mmToPts(12), {
+       .text(`Fecha: ${fecha}`, margin, mmToPts(11), {
          width: mmToPts(38),
          align: 'center'
        });
 
-    // --- ENCARGADO (izquierda) ---
-    doc.fontSize(5)
+    // --- ENCARGADO (izquierda - debajo del logo) ---
+    doc.fontSize(4.5)
        .font('Helvetica')
-       .text('ENCARGADO:', mmToPts(1), mmToPts(20), {
-         width: mmToPts(10),
+       .text('ENCARGADO:', mmToPts(1), mmToPts(19), {
+         width: mmToPts(9),
          align: 'left'
        });
 
-    doc.fontSize(6)
+    doc.fontSize(5)
        .font('Helvetica-Bold')
-       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(22.5), {
-         width: mmToPts(10),
+       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(21), {
+         width: mmToPts(9),
          align: 'left',
          lineBreak: true
        });
 
-    // --- CÓDIGO QR (centro) ---
+    // --- CÓDIGO QR (centro) - Tamaño reducido a 16mm ---
     try {
       // Verificar si el QR existe
       await fs.promises.access(qrCodePath);
-      doc.image(qrCodePath, mmToPts(11), mmToPts(19), {
-        width: mmToPts(18),
-        height: mmToPts(18),
-        fit: [mmToPts(18), mmToPts(18)]
+      doc.image(qrCodePath, mmToPts(12), mmToPts(18), {
+        width: mmToPts(16),
+        height: mmToPts(16),
+        fit: [mmToPts(16), mmToPts(16)]
       });
     } catch (qrError) {
       console.warn('⚠️ QR Code no encontrado:', qrCodePath);
       // Dibujar un cuadrado placeholder
-      doc.rect(mmToPts(11), mmToPts(19), mmToPts(18), mmToPts(18))
+      doc.rect(mmToPts(12), mmToPts(18), mmToPts(16), mmToPts(16))
          .lineWidth(1)
          .stroke('#CCCCCC');
       
       doc.fontSize(7)
          .font('Helvetica')
-         .text('QR N/D', mmToPts(11), mmToPts(26), {
-           width: mmToPts(18),
+         .text('QR N/D', mmToPts(12), mmToPts(24), {
+           width: mmToPts(16),
            align: 'center'
          });
     }
 
-    // --- UBICACIÓN (derecha) ---
-    doc.fontSize(5)
+    // --- UBICACIÓN (derecha - debajo del logo) ---
+    doc.fontSize(4.5)
        .font('Helvetica')
-       .text('UBICACIÓN', mmToPts(29), mmToPts(20), {
-         width: mmToPts(10),
+       .text('UBICACIÓN', mmToPts(30), mmToPts(19), {
+         width: mmToPts(9),
          align: 'right'
        });
 
-    doc.fontSize(6)
+    doc.fontSize(5)
        .font('Helvetica-Bold')
-       .text(asset.location || 'N/A', mmToPts(29), mmToPts(22.5), {
-         width: mmToPts(10),
+       .text(asset.location || 'N/A', mmToPts(30), mmToPts(21), {
+         width: mmToPts(9),
          align: 'right',
          lineBreak: true
        });
 
-    // --- SERIAL NUMBER (inferior) ---
-    doc.fontSize(9)
+    // --- SERIAL NUMBER (inferior - debajo del QR) ---
+    doc.fontSize(6)
        .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(asset.serial_number, margin, mmToPts(36), {
+       .text(asset.serial_number, margin, mmToPts(35), {
          width: mmToPts(38),
          align: 'center'
        });

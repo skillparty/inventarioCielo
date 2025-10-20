@@ -7,6 +7,7 @@ import ActivoForm from './components/ActivoForm';
 import QRScanner from './components/QRScanner';
 import LocationsManager from './components/LocationsManager';
 import ResponsiblesManager from './components/ResponsiblesManager';
+import AssetNamesManager from './components/AssetNamesManager';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -40,6 +41,8 @@ function App() {
         return <LocationsManager onBack={() => handleViewChange('dashboard')} />;
       case 'responsibles':
         return <ResponsiblesManager onBack={() => handleViewChange('dashboard')} />;
+      case 'assetNames':
+        return <AssetNamesManager onBack={() => handleViewChange('dashboard')} />;
       default:
         return <Dashboard onViewChange={handleViewChange} />;
     }

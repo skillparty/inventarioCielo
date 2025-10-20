@@ -191,11 +191,12 @@ router.get('/:serial_number', asyncHandler(async (req, res) => {
 /**
  * POST /api/assets
  * Crear nuevo activo
- * Body: { name?, description, responsible, location, category?, value?, status? }
+ * Body: { asset_name_id?, name?, description, responsible, location, category?, value?, status? }
  * El serial_number se genera automáticamente (formato: ABC1234)
+ * Si se proporciona asset_name_id, se genera el nombre con contador incremental
  */
 router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
-  let { serial_number, name, description, responsible, location, category, value, status } = req.body;
+  let { serial_number, asset_name_id, name, description, responsible, location, category, value, status } = req.body;
 
   // Si no se proporciona serial_number, generar uno automáticamente
   if (!serial_number || serial_number.trim() === '') {
@@ -213,18 +214,50 @@ router.post('/', validateAssetCreation, asyncHandler(async (req, res) => {
     }
   }
 
+  // Si se proporciona asset_name_id, generar nombre con contador incremental
+  if (asset_name_id) {
+    const assetNameResult = await db.query(
+      'SELECT name, counter FROM asset_names WHERE id = $1',
+      [asset_name_id]
+    );
+
+    if (assetNameResult.rows.length === 0) {
+      throw new ApiError(404, 'El nombre de activo seleccionado no existe');
+    }
+
+    const baseName = assetNameResult.rows[0].name;
+    const currentCounter = assetNameResult.rows[0].counter;
+
+    // Generar nombre completo con contador
+    name = `${baseName} (${currentCounter})`;
+
+    // Incrementar contador en asset_names
+    await db.query(
+      'UPDATE asset_names SET counter = counter + 1 WHERE id = $1',
+      [asset_name_id]
+    );
+
+    console.log(`✅ Nombre generado con contador: ${name}`);
+  }
+
   dbLogger.logQuery('INSERT', 'assets', `serial_number="${serial_number}"`);
 
   // Generar y guardar código QR como archivo PNG (usando el serial_number)
   const qrResult = await generateQRCode(serial_number);
 
+  // Generar asset_id con formato: AST-YYYY-NNNN
+  const year = new Date().getFullYear();
+  const countResult = await db.query('SELECT COUNT(*) FROM assets');
+  const assetCount = parseInt(countResult.rows[0].count) + 1;
+  const asset_id = `AST-${year}-${String(assetCount).padStart(4, '0')}`;
+
   // Insertar activo en la base de datos
   const result = await db.query(
     `INSERT INTO assets (
-      serial_number, name, description, responsible, location, qr_code_path, category, value, status
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      serial_number, asset_id, name, description, responsible, location, qr_code_path, category, value, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
     RETURNING *`,
-    [serial_number, name || null, description, responsible, location, qrResult.filePath, category || null, value || 0, status || 'Activo']
+    [serial_number, asset_id, name || null, description, responsible, location, qrResult.filePath, category || null, value || 0, status || 'Activo']
   );
 
   dbLogger.logSuccess('INSERT', result);

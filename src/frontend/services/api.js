@@ -315,6 +315,58 @@ export const deleteResponsible = async (id) => {
 };
 
 // =====================================================
+// ASSET NAMES API SERVICES
+// =====================================================
+
+/**
+ * Obtener todos los nombres de activos
+ */
+export const getAssetNames = async () => {
+  const response = await api.get('/api/asset-names');
+  return response.data;
+};
+
+/**
+ * Obtener un nombre de activo por ID
+ */
+export const getAssetNameById = async (id) => {
+  const response = await api.get(`/api/asset-names/${id}`);
+  return response.data;
+};
+
+/**
+ * Crear nuevo nombre de activo
+ */
+export const createAssetName = async (assetName) => {
+  const response = await api.post('/api/asset-names', assetName);
+  return response.data;
+};
+
+/**
+ * Actualizar nombre de activo
+ */
+export const updateAssetName = async (id, assetName) => {
+  const response = await api.put(`/api/asset-names/${id}`, assetName);
+  return response.data;
+};
+
+/**
+ * Eliminar nombre de activo
+ */
+export const deleteAssetName = async (id) => {
+  const response = await api.delete(`/api/asset-names/${id}`);
+  return response.data;
+};
+
+/**
+ * Obtener siguiente número disponible para un nombre de activo
+ */
+export const getNextAssetNumber = async (id) => {
+  const response = await api.get(`/api/asset-names/${id}/next-number`);
+  return response.data;
+};
+
+// =====================================================
 // BARTENDER LABELS API SERVICES
 // =====================================================
 

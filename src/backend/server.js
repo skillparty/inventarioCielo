@@ -8,6 +8,7 @@ const path = require('path');
 const assetsRoutes = require('./routes/assets');
 const locationsRoutes = require('./routes/locations');
 const responsiblesRoutes = require('./routes/responsibles');
+const assetNamesRoutes = require('./routes/assetNames');
 const db = require('./database/db');
 const { requestLogger } = require('./middleware/logger');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
@@ -82,6 +83,7 @@ app.use(requestLogger);
 app.use('/api/assets', assetsRoutes);
 app.use('/api/locations', locationsRoutes);
 app.use('/api/responsibles', responsiblesRoutes);
+app.use('/api/asset-names', assetNamesRoutes);
 
 // Definir rutas del frontend (necesarias más abajo)
 const frontendBuildPath = path.join(__dirname, '../../build');

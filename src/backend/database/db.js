@@ -5,7 +5,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'inventario_db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
+  password: process.env.DB_PASSWORD || 'a1n9d9y6',
 });
 
 pool.on('connect', () => {

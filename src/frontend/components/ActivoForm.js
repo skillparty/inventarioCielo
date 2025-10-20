@@ -113,11 +113,6 @@ function ActivoForm({ activo, onBack }) {
     e.preventDefault();
     
     // Validaciones del frontend
-    if (!formData.descripcion.trim() || formData.descripcion.trim().length < 10) {
-      alert('La descripción es obligatoria y debe tener al menos 10 caracteres');
-      return;
-    }
-
     if (!formData.responsable.trim()) {
       alert('Debe seleccionar un responsable');
       return;
@@ -135,7 +130,7 @@ function ActivoForm({ activo, onBack }) {
         // Actualizar - Mapear campos al formato del backend
         const dataToSend = {
           name: formData.nombre || null,
-          description: formData.descripcion,
+          description: formData.descripcion.trim() || 'N/A',
           responsible: formData.responsable,
           location: formData.ubicacion,
           category: formData.categoria || null,
@@ -150,7 +145,7 @@ function ActivoForm({ activo, onBack }) {
       } else {
         // Crear nuevo - El serial_number se genera automáticamente en el backend
         const dataToSend = {
-          description: formData.descripcion,
+          description: formData.descripcion.trim() || 'N/A',
           responsible: formData.responsable,
           location: formData.ubicacion,
           category: formData.categoria || null,
@@ -453,15 +448,14 @@ function ActivoForm({ activo, onBack }) {
             </div>
 
             <div className="form-group full-width">
-              <label htmlFor="descripcion">Descripción *</label>
+              <label htmlFor="descripcion">Observación o nota (Opcional)</label>
               <textarea
                 id="descripcion"
                 name="descripcion"
                 value={formData.descripcion}
                 onChange={handleChange}
-                placeholder="Descripción detallada del activo"
+                placeholder="Observación o nota sobre el activo (si se deja vacío se guardará como N/A)"
                 rows="4"
-                required
               />
             </div>
           </div>

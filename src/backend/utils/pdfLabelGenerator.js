@@ -79,26 +79,28 @@ const generatePDFLabel = async (asset) => {
        .lineWidth(0.5)
        .stroke('#666666');
 
-    // --- TÍTULO PRINCIPAL (más arriba) ---
+    // --- NOMBRE DEL ACTIVO (título principal) ---
+    const assetName = asset.name || 'SIN NOMBRE';
     doc.fillColor('#000000')
-       .fontSize(10)
+       .fontSize(6)
        .font('Helvetica-Bold')
-       .text('DOTACION CIELO', margin, mmToPts(2), {
+       .text(assetName.toUpperCase(), margin, mmToPts(1), {
          width: mmToPts(38),
-         align: 'center'
+         align: 'center',
+         lineBreak: true
        });
 
-    // --- FECHA (más grande) ---
+    // --- FECHA ---
     const fecha = new Date().toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
       year: '2-digit'
     });
 
-    doc.fontSize(8)
+    doc.fontSize(6)
        .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(`Fecha: ${fecha}`, margin, mmToPts(6), {
+       .text(`Fecha: ${fecha}`, margin, mmToPts(8), {
          width: mmToPts(38),
          align: 'center'
        });
@@ -106,14 +108,14 @@ const generatePDFLabel = async (asset) => {
     // --- ENCARGADO (izquierda) ---
     doc.fontSize(4.5)
        .font('Helvetica')
-       .text('ENCARGADO:', mmToPts(1), mmToPts(10), {
+       .text('ENCARGADO:', mmToPts(1), mmToPts(11), {
          width: mmToPts(16),
          align: 'left'
        });
 
     doc.fontSize(5)
        .font('Helvetica-Bold')
-       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(12), {
+       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(13), {
          width: mmToPts(16),
          align: 'left',
          lineBreak: true
@@ -122,14 +124,14 @@ const generatePDFLabel = async (asset) => {
     // --- UBICACIÓN (izquierda, debajo del encargado) ---
     doc.fontSize(4.5)
        .font('Helvetica')
-       .text('UBICACIÓN:', mmToPts(1), mmToPts(16), {
+       .text('UBICACIÓN:', mmToPts(1), mmToPts(17), {
          width: mmToPts(16),
          align: 'left'
        });
 
     doc.fontSize(5)
        .font('Helvetica-Bold')
-       .text(asset.location || 'N/A', mmToPts(1), mmToPts(18), {
+       .text(asset.location || 'N/A', mmToPts(1), mmToPts(19), {
          width: mmToPts(16),
          align: 'left',
          lineBreak: true
@@ -139,7 +141,7 @@ const generatePDFLabel = async (asset) => {
     const hasLogo = await logoExists();
     if (hasLogo) {
       try {
-        doc.image(LOGO_PATH, mmToPts(4), mmToPts(22), {
+        doc.image(LOGO_PATH, mmToPts(4), mmToPts(23), {
           width: mmToPts(8),
           height: mmToPts(8),
           fit: [mmToPts(8), mmToPts(8)],
@@ -154,7 +156,7 @@ const generatePDFLabel = async (asset) => {
     try {
       // Verificar si el QR existe
       await fs.promises.access(qrCodePath);
-      doc.image(qrCodePath, mmToPts(18), mmToPts(10), {
+      doc.image(qrCodePath, mmToPts(18), mmToPts(11), {
         width: mmToPts(20),
         height: mmToPts(20),
         fit: [mmToPts(20), mmToPts(20)]
@@ -162,23 +164,23 @@ const generatePDFLabel = async (asset) => {
     } catch (qrError) {
       console.warn('⚠️ QR Code no encontrado:', qrCodePath);
       // Dibujar un cuadrado placeholder
-      doc.rect(mmToPts(18), mmToPts(10), mmToPts(20), mmToPts(20))
+      doc.rect(mmToPts(18), mmToPts(11), mmToPts(20), mmToPts(20))
          .lineWidth(1)
          .stroke('#CCCCCC');
       
       doc.fontSize(8)
          .font('Helvetica')
-         .text('QR N/D', mmToPts(18), mmToPts(18), {
+         .text('QR N/D', mmToPts(18), mmToPts(19), {
            width: mmToPts(20),
            align: 'center'
          });
     }
 
     // --- SERIAL NUMBER (inferior - debajo del QR con más espacio) ---
-    doc.fontSize(6)
+    doc.fontSize(8)
        .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(asset.serial_number, margin, mmToPts(31), {
+       .text(asset.serial_number, margin, mmToPts(35), {
          width: mmToPts(38),
          align: 'center'
        });

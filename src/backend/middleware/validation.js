@@ -12,8 +12,6 @@ const validateAssetCreation = (req, res, next) => {
   // Validar description
   if (!description || typeof description !== 'string') {
     errors.push('El campo "description" es obligatorio y debe ser texto');
-  } else if (description.trim().length < 10) {
-    errors.push('La descripción debe tener al menos 10 caracteres');
   } else if (description.trim().length > 5000) {
     errors.push('La descripción no puede exceder 5000 caracteres');
   }
@@ -71,8 +69,6 @@ const validateAssetUpdate = (req, res, next) => {
   if (description !== undefined) {
     if (typeof description !== 'string') {
       errors.push('El campo "description" debe ser texto');
-    } else if (description.trim().length < 10) {
-      errors.push('La descripción debe tener al menos 10 caracteres');
     } else if (description.trim().length > 5000) {
       errors.push('La descripción no puede exceder 5000 caracteres');
     }

@@ -129,18 +129,19 @@ export const exportAssetsToPDF = (assets, stats = null) => {
   const tableData = assets.map((asset, index) => [
     (index + 1).toString(),
     asset.serial_number || asset.asset_id || 'N/A',
-    asset.description || 'Sin descripción',
+    asset.name || 'Sin nombre',
     asset.category || 'Sin categoría',
     asset.status || 'Activo',
     asset.responsible || 'Sin asignar',
     asset.location || 'Sin ubicación',
+    asset.description || 'N/A',
     formatCurrency(parseFloat(asset.value) || 0)
   ]);
   
   // Crear tabla principal de activos
   autoTable(doc, {
     startY: stats ? doc.lastAutoTable.finalY + 20 : 45,
-    head: [['#', 'No. Serie', 'Descripción', 'Categoría', 'Estado', 'Responsable', 'Ubicación', 'Valor']],
+    head: [['#', 'No. Serie', 'Nombre', 'Categoría', 'Estado', 'Responsable', 'Ubicación', 'Observación o nota', 'Valor']],
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -159,13 +160,14 @@ export const exportAssetsToPDF = (assets, stats = null) => {
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 30, fontStyle: 'bold' },
-      2: { cellWidth: 70 },
-      3: { cellWidth: 35 },
-      4: { cellWidth: 25, halign: 'center' },
-      5: { cellWidth: 35 },
-      6: { cellWidth: 35 },
-      7: { cellWidth: 28, halign: 'right', fontStyle: 'bold' }
+      1: { cellWidth: 25, fontStyle: 'bold' },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 22, halign: 'center' },
+      5: { cellWidth: 30 },
+      6: { cellWidth: 30 },
+      7: { cellWidth: 50 },
+      8: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
     },
     margin: { left: 14, right: 14 },
     didDrawCell: (data) => {

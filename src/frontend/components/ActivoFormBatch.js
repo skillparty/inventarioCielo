@@ -84,19 +84,16 @@ function ActivoFormBatch({ onBack }) {
       alert('Debe ingresar un nombre para el activo');
       return;
     }
-    if (!itemActual.descripcion.trim() || itemActual.descripcion.trim().length < 10) {
-      alert('La descripción es obligatoria y debe tener al menos 10 caracteres');
-      return;
-    }
     if (!itemActual.cantidad || itemActual.cantidad < 1) {
       alert('La cantidad debe ser al menos 1');
       return;
     }
 
-    // Agregar al carrito
+    // Agregar al carrito (si descripción está vacía, usar N/A)
     const nuevoItem = {
       id: Date.now(), // ID temporal para poder eliminar del carrito
       ...itemActual,
+      descripcion: itemActual.descripcion.trim() || 'N/A',
       cantidad: parseInt(itemActual.cantidad)
     };
 
@@ -375,13 +372,13 @@ function ActivoFormBatch({ onBack }) {
               </div>
 
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label htmlFor="descripcion">Descripción *</label>
+                <label htmlFor="descripcion">Observación o nota (Opcional)</label>
                 <textarea
                   id="descripcion"
                   name="descripcion"
                   value={itemActual.descripcion}
                   onChange={handleItemChange}
-                  placeholder="Descripción detallada del activo (mínimo 10 caracteres)"
+                  placeholder="Observación o nota sobre el activo (si se deja vacío se guardará como N/A)"
                   rows="3"
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '2px solid #ddd' }}
                 />

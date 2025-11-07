@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Home, List, Plus, Camera } from 'lucide-react';
+import { Package, Home, List, Plus, Camera, Printer } from 'lucide-react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import ActivosListSimple from './components/ActivosListSimple';
@@ -9,6 +9,7 @@ import QRScanner from './components/QRScanner';
 import LocationsManager from './components/LocationsManager';
 import ResponsiblesManager from './components/ResponsiblesManager';
 import AssetNamesManager from './components/AssetNamesManager';
+import BatchLabelGenerator from './components/BatchLabelGenerator';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -40,6 +41,8 @@ function App() {
         return <ActivoForm activo={selectedActivo} onBack={() => handleViewChange('list')} />;
       case 'scanner':
         return <QRScanner onBack={() => handleViewChange('dashboard')} />;
+      case 'batchPrint':
+        return <BatchLabelGenerator />;
       case 'locations':
         return <LocationsManager onBack={() => handleViewChange('dashboard')} />;
       case 'responsibles':
@@ -82,6 +85,12 @@ function App() {
               onClick={() => handleViewChange('scanner')}
             >
               <Camera size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Escanear QR
+            </button>
+            <button 
+              className={currentView === 'batchPrint' ? 'active' : ''} 
+              onClick={() => handleViewChange('batchPrint')}
+            >
+              <Printer size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />Impresión por Lotes
             </button>
           </nav>
         </div>

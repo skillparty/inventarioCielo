@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { showQROverlay } from './QROverlay';
-import { QrCode, Edit, Trash2, List, Search, RefreshCw, Tag } from 'lucide-react';
-import { getAssets, generateQRCode, deleteAsset, downloadBarTenderLabel, getLocations, getResponsibles } from '../services/api';
+import { QrCode, Edit, Trash2, List, Search, RefreshCw, Tag, Filter, ArrowUpDown, Printer, Upload, Download } from 'lucide-react';
+import { getAssets, generateQRCode, deleteAsset, downloadBarTenderLabel, downloadExcelTemplate, uploadBulkAssets } from '../services/api';
 import './ActivosList.css';
 
 // Componente de tarjeta de activo aislado para manejar sus propios eventos
@@ -141,6 +141,34 @@ function ActivoCard({ activo, onEdit }) {
     }
   };
 
+  const handlePrint = async (e) => {
+    e.stopPropagation();
+    try {
+      console.log('🖨️ Imprimiendo etiqueta PDF para:', activo.serial_number);
+      
+      // Construir URL del PDF
+      const API_URL = process.env.REACT_APP_API_URL || 'https://localhost:5001';
+      const pdfUrl = `${API_URL}/api/assets/${activo.serial_number}/download-label`;
+      
+      // Abrir PDF en nueva ventana
+      const printWindow = window.open(pdfUrl, '_blank');
+      
+      if (printWindow) {
+        // Esperar a que el PDF cargue y luego imprimir
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      } else {
+        alert('Por favor, permite las ventanas emergentes para imprimir.');
+      }
+      
+      console.log('✅ Ventana de impresión abierta');
+    } catch (error) {
+      console.error('🔴 Error al imprimir:', error);
+      alert('Error al imprimir: ' + (error.message || error.toString()));
+    }
+  };
+
   const handleDelete = async (e, serialNumber) => {
     e.stopPropagation();
     if (window.confirm(`¿Eliminar activo ${serialNumber}?`)) {
@@ -196,6 +224,26 @@ function ActivoCard({ activo, onEdit }) {
         </button>
         <button 
           type="button"
+          className="btn-print" 
+          onClick={handlePrint}
+          title="Imprimir Etiqueta"
+          style={{
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '8px 12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '14px'
+          }}
+        >
+          <Printer size={18} />
+        </button>
+        <button 
+          type="button"
           className="btn-label" 
           onClick={handleGenerateLabel}
           title="Descargar Etiqueta BarTender"
@@ -237,21 +285,17 @@ function ActivosListSimple({ onEdit, onBack }) {
   const [activos, setActivos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    location: '',
-    responsible: '',
-    category: '',
-    status: ''
-  });
-  const [locations, setLocations] = useState([]);
-  const [responsibles, setResponsibles] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [responsibleFilter, setResponsibleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest'); // newest, oldest, serial, name
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   const loadActivos = async () => {
     setLoading(true);
     try {
       // Usar la función del api.js que tiene la configuración correcta
-      const response = await getAssets(1, 500);
+      const response = await getAssets(1, 5000);
       setActivos(response.data);
     } catch (error) {
       console.error('Error al cargar activos:', error);
@@ -261,67 +305,110 @@ function ActivosListSimple({ onEdit, onBack }) {
     }
   };
 
-  const loadFiltersData = async () => {
+  useEffect(() => {
+    loadActivos();
+  }, []);
+
+  const handleDownloadTemplate = () => {
+    console.log('📥 Descargando plantilla Excel...');
+    downloadExcelTemplate();
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar extensión
+    const validExtensions = ['.xlsx', '.xls'];
+    const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!validExtensions.includes(extension)) {
+      alert('Por favor, selecciona un archivo Excel (.xlsx o .xls)');
+      return;
+    }
+
+    // Confirmar acción
+    const confirmed = window.confirm(
+      `¿Deseas cargar el archivo "${file.name}"?\n\n` +
+      'Este proceso creará múltiples activos automáticamente.\n' +
+      'El número de serie se generará automáticamente para cada activo.'
+    );
+
+    if (!confirmed) {
+      event.target.value = ''; // Limpiar input
+      return;
+    }
+
+    setUploading(true);
+
     try {
-      const [locationsRes, responsiblesRes] = await Promise.all([
-        getLocations(),
-        getResponsibles()
-      ]);
-      setLocations(locationsRes.data || []);
-      setResponsibles(responsiblesRes.data || []);
+      console.log('📤 Subiendo archivo Excel:', file.name);
+      const result = await uploadBulkAssets(file);
+      
+      console.log('✅ Resultado:', result);
+      
+      // Mostrar resumen
+      let message = `✅ Carga masiva completada\n\n`;
+      message += `Total de filas: ${result.results.total}\n`;
+      message += `Activos creados: ${result.results.created}\n`;
+      
+      if (result.results.errors.length > 0) {
+        message += `Errores: ${result.results.errors.length}\n\n`;
+        message += `Detalles de errores:\n`;
+        result.results.errors.forEach(err => {
+          message += `- Fila ${err.row}: ${err.error}\n`;
+        });
+      }
+
+      alert(message);
+
+      // Recargar lista de activos
+      if (result.results.created > 0) {
+        await loadActivos();
+      }
+
     } catch (error) {
-      console.error('Error al cargar datos de filtros:', error);
+      console.error('🔴 Error al cargar archivo:', error);
+      alert('Error al procesar el archivo Excel:\n' + (error.response?.data?.message || error.message));
+    } finally {
+      setUploading(false);
+      event.target.value = ''; // Limpiar input
     }
   };
 
-  useEffect(() => {
-    loadActivos();
-    loadFiltersData();
-  }, []);
+  // Obtener listas únicas para los filtros
+  const uniqueLocations = [...new Set(activos.map(a => a.location).filter(Boolean))].sort();
+  const uniqueResponsibles = [...new Set(activos.map(a => a.responsible).filter(Boolean))].sort();
 
-  const filteredActivos = activos.filter(activo => {
-    // Filtro por búsqueda de texto
-    const matchesSearch = !searchTerm || 
+  // Aplicar filtros
+  let filteredActivos = activos.filter(activo => {
+    const matchesSearch = 
       (activo.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (activo.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (activo.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (activo.location?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (activo.responsible?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (activo.category?.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Filtro por ubicación
-    const matchesLocation = !filters.location || activo.location === filters.location;
+    const matchesLocation = locationFilter === 'all' || activo.location === locationFilter;
+    const matchesResponsible = responsibleFilter === 'all' || activo.responsible === responsibleFilter;
     
-    // Filtro por responsable
-    const matchesResponsible = !filters.responsible || activo.responsible === filters.responsible;
-    
-    // Filtro por categoría
-    const matchesCategory = !filters.category || activo.category === filters.category;
-    
-    // Filtro por estado
-    const matchesStatus = !filters.status || activo.status === filters.status;
-    
-    return matchesSearch && matchesLocation && matchesResponsible && matchesCategory && matchesStatus;
+    return matchesSearch && matchesLocation && matchesResponsible;
   });
 
-  const handleFilterChange = (filterName, value) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
-  };
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setFilters({
-      location: '',
-      responsible: '',
-      category: '',
-      status: ''
-    });
-  };
-
-  const categorias = ['Equipos de Cómputo', 'Mobiliario', 'Electrónica', 'Vehículos', 'Herramientas', 'Otros'];
-  const estados = ['Activo', 'Inactivo', 'Mantenimiento', 'Baja'];
-
-  const activeFiltersCount = Object.values(filters).filter(v => v !== '').length + (searchTerm ? 1 : 0);
+  // Aplicar ordenamiento
+  filteredActivos = [...filteredActivos].sort((a, b) => {
+    switch(sortBy) {
+      case 'newest':
+        return new Date(b.created_at) - new Date(a.created_at);
+      case 'oldest':
+        return new Date(a.created_at) - new Date(b.created_at);
+      case 'serial':
+        return (a.serial_number || '').localeCompare(b.serial_number || '');
+      case 'name':
+        return (a.name || a.description || '').localeCompare(b.name || b.description || '');
+      default:
+        return 0;
+    }
+  });
 
   if (loading) {
     return <div className="activos-list loading"><div className="spinner"></div><p>Cargando activos...</p></div>;
@@ -333,180 +420,189 @@ function ActivosListSimple({ onEdit, onBack }) {
         <button className="back-btn" onClick={onBack}>← Volver</button>
         <h2><List size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }} />Listado de Activos</h2>
       </div>
+      
+      {/* Barra de búsqueda */}
       <div className="filters-bar">
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
-          <div style={{ position: 'relative', flex: '1', minWidth: '250px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nombre, serial, descripción..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              className="search-input"
-              style={{ paddingLeft: '40px' }}
-            />
-          </div>
-          <button 
-            className="btn-filters" 
-            onClick={() => setShowFilters(!showFilters)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+          <Search size={18} style={{ color: '#6b7280' }} />
+          <input 
+            type="text" 
+            placeholder="Buscar por serial, descripción, ubicación..." 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            className="search-input"
+            style={{ flex: 1 }}
+          />
+        </div>
+        <button className="refresh-btn" onClick={loadActivos}>
+          <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+          Actualizar
+        </button>
+      </div>
+
+      {/* Carga Masiva */}
+      <div className="filters-bar" style={{ marginTop: '12px', backgroundColor: '#f0f9ff', border: '1px solid #3b82f6' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Upload size={18} style={{ color: '#3b82f6' }} />
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>Carga Masiva:</span>
+        </div>
+        
+        <button 
+          onClick={handleDownloadTemplate}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          <Download size={16} />
+          Descargar Plantilla
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+        />
+
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            backgroundColor: uploading ? '#9ca3af' : '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          <Upload size={16} />
+          {uploading ? 'Procesando...' : 'Subir Excel'}
+        </button>
+      </div>
+
+      {/* Filtros adicionales */}
+      <div className="filters-bar" style={{ marginTop: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={16} style={{ color: '#6b7280' }} />
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Filtros:</span>
+        </div>
+        
+        <select 
+          value={locationFilter} 
+          onChange={(e) => setLocationFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="all">📍 Todas las ubicaciones</option>
+          {uniqueLocations.map(loc => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
+
+        <select 
+          value={responsibleFilter} 
+          onChange={(e) => setResponsibleFilter(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="all">👤 Todos los responsables</option>
+          {uniqueResponsibles.map(resp => (
+            <option key={resp} value={resp}>{resp}</option>
+          ))}
+        </select>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+          <ArrowUpDown size={16} style={{ color: '#6b7280' }} />
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
             style={{
-              backgroundColor: showFilters ? '#3498db' : '#ecf0f1',
-              color: showFilters ? 'white' : '#2c3e50',
-              border: 'none',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              padding: '8px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
               fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.3s'
+              cursor: 'pointer',
+              backgroundColor: 'white',
+              fontWeight: '500'
             }}
           >
-            <Search size={18} />
-            Filtros {activeFiltersCount > 0 && `(${activeFiltersCount})`}
-          </button>
-          <button className="refresh-btn" onClick={loadActivos}>
-            <RefreshCw size={18} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
-            Actualizar
-          </button>
+            <option value="newest">🕐 Más recientes</option>
+            <option value="oldest">🕑 Más antiguos</option>
+            <option value="serial">🔤 Por serial (A-Z)</option>
+            <option value="name">📝 Por nombre (A-Z)</option>
+          </select>
         </div>
       </div>
-      
-      {showFilters && (
-        <div style={{
-          backgroundColor: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '12px',
-          marginBottom: '20px',
-          border: '2px solid #e9ecef'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px',
-            marginBottom: '16px'
-          }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#495057' }}>
-                Ubicación
-              </label>
-              <select
-                value={filters.location}
-                onChange={(e) => handleFilterChange('location', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #dee2e6',
-                  fontSize: '14px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Todas las ubicaciones</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.name}>{loc.name}</option>
-                ))}
-              </select>
-            </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#495057' }}>
-                Responsable
-              </label>
-              <select
-                value={filters.responsible}
-                onChange={(e) => handleFilterChange('responsible', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #dee2e6',
-                  fontSize: '14px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Todos los responsables</option>
-                {responsibles.map(resp => (
-                  <option key={resp.id} value={resp.name}>{resp.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#495057' }}>
-                Categoría
-              </label>
-              <select
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #dee2e6',
-                  fontSize: '14px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Todas las categorías</option>
-                {categorias.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#495057' }}>
-                Estado
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #dee2e6',
-                  fontSize: '14px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Todos los estados</option>
-                {estados.map(est => (
-                  <option key={est} value={est}>{est}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {activeFiltersCount > 0 && (
-            <button
-              onClick={clearFilters}
-              style={{
-                backgroundColor: '#e74c3c',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
-            >
-              Limpiar filtros
-            </button>
-          )}
-        </div>
-      )}
-      
-      <div className="results-count">
-        Mostrando {filteredActivos.length} de {activos.length} activos
-        {activeFiltersCount > 0 && ` (${activeFiltersCount} filtro${activeFiltersCount > 1 ? 's' : ''} activo${activeFiltersCount > 1 ? 's' : ''})`}
+      <div className="results-count" style={{ marginTop: '16px' }}>
+        Mostrando <strong>{filteredActivos.length}</strong> de <strong>{activos.length}</strong> activos
+        {(locationFilter !== 'all' || responsibleFilter !== 'all' || searchTerm) && (
+          <button 
+            onClick={() => { setSearchTerm(''); setLocationFilter('all'); setResponsibleFilter('all'); }}
+            style={{
+              marginLeft: '12px',
+              padding: '4px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              backgroundColor: 'white',
+              color: '#6b7280'
+            }}
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
+
       {filteredActivos.length === 0 ? (
-        <div className="no-results"><p>No se encontraron activos</p></div>
+        <div className="no-results">
+          <p>No se encontraron activos con los filtros aplicados</p>
+          <button 
+            onClick={() => { setSearchTerm(''); setLocationFilter('all'); setResponsibleFilter('all'); }}
+            style={{
+              marginTop: '12px',
+              padding: '8px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              backgroundColor: 'white',
+              color: '#374151'
+            }}
+          >
+            Limpiar filtros
+          </button>
+        </div>
       ) : (
         <div className="activos-grid">
           {filteredActivos.map((activo) => (

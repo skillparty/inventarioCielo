@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BarTender Version="2024" Build="3358">
+  <Format>
+    <Template Name="INVENTARIO_CIELO" Width="40" Height="40" Units="Millimeters">
+      <!-- Fondo y marco -->
+      <Shape Type="Rectangle" X="0" Y="0" Width="40" Height="40" Fill="#F0F0F0" Stroke="#666666" StrokeWidth="0.5"/>
+      
+      <!-- Título superior -->
+      <Text X="1" Y="2" FontSize="8" FontWeight="Bold" Align="Center" Width="38">
+        <Value>INVENTARIO_CIELO</Value>
+      </Text>
+      
+      <Text X="30" Y="2" FontSize="6" Align="Right" Width="9">
+        <Value>40 x 40(Mi)</Value>
+      </Text>
+      
+      <!-- Título principal -->
+      <Text X="1" Y="6" FontSize="14" FontWeight="Bold" Align="Center" Width="38">
+        <Value>DOTACION CIELO</Value>
+      </Text>
+      
+      <!-- Logo izquierdo -->
+      <Image X="2" Y="8" Width="8" Height="8" MaintainAspect="true">
+        <Path>/Users/alejandrorollano/inventarioCielo/public/assets/logo-cielo.png</Path>
+      </Image>
+      
+      <!-- Logo derecho -->
+      <Image X="30" Y="8" Width="8" Height="8" MaintainAspect="true">
+        <Path>/Users/alejandrorollano/inventarioCielo/public/assets/logo-cielo.png</Path>
+      </Image>
+      
+      <!-- Fecha -->
+      <Text X="10" Y="10" FontSize="8" Align="Center" Width="20">
+        <Value>Fecha: 20/10/25</Value>
+      </Text>
+      
+      <!-- Encargado (izquierda) -->
+      <Text X="1" Y="18" FontSize="7" Align="Left" Width="10">
+        <Value>ENCARGADO:</Value>
+      </Text>
+      <Text X="1" Y="20" FontSize="8" FontWeight="Bold" Align="Left" Width="10">
+        <Value>Veronica Sejas C.</Value>
+      </Text>
+      
+      <!-- Código QR central -->
+      <Barcode Type="QRCode" X="11" Y="17" Width="18" Height="18">
+        <Data>BYP4417</Data>
+        <ErrorCorrection>H</ErrorCorrection>
+      </Barcode>
+      
+      <!-- Ubicación (derecha) -->
+      <Text X="29" Y="18" FontSize="7" Align="Right" Width="10">
+        <Value>UBICACIÓN</Value>
+      </Text>
+      <Text X="29" Y="20" FontSize="8" FontWeight="Bold" Align="Right" Width="10">
+        <Value>Ambiente Fabiola E.</Value>
+      </Text>
+      
+      <!-- Serial Number (abajo) -->
+      <Text X="1" Y="36" FontSize="12" FontWeight="Bold" Align="Center" Width="38">
+        <Value>BYP4417</Value>
+      </Text>
+    </Template>
+  </Format>
+</BarTender>

@@ -46,13 +46,15 @@
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.545.0",
+    "multer": "^2.0.2",
     "pdfkit": "^0.17.2",
     "pg": "^8.11.3",
     "qrcode": "^1.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",

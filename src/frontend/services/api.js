@@ -394,4 +394,86 @@ export const downloadBarTenderLabel = async (serialNumber) => {
   window.open(url, '_blank');
 };
 
+// =====================================================
+// BATCH LABELS API SERVICES
+// =====================================================
+
+/**
+ * Obtener todos los activos sin paginación (para batch generator)
+ */
+export const getAllAssets = async () => {
+  const response = await api.get('/api/assets?limit=5000');
+  return response.data;
+};
+
+/**
+ * Generar PDF con múltiples etiquetas
+ * @param {Array<string>} serialNumbers - Array de números de serie
+ * @returns {Promise} - Información del PDF generado
+ */
+export const generateBatchLabels = async (serialNumbers) => {
+  const response = await api.post('/api/assets/batch/generate-labels', {
+    serialNumbers
+  });
+  
+  // Construir URL de descarga completa
+  const baseUrl = API_URL || window.location.origin;
+  const downloadUrl = `${baseUrl}${response.data.batch.downloadUrl}`;
+  
+  return {
+    ...response.data,
+    batch: {
+      ...response.data.batch,
+      downloadUrl
+    }
+  };
+};
+
+/**
+ * Obtener URL de descarga de PDF batch
+ */
+export const getBatchLabelDownloadUrl = (filename) => {
+  const baseUrl = API_URL || window.location.origin;
+  return `${baseUrl}/api/assets/batch/download-labels/${filename}`;
+};
+
+/**
+ * Descargar PDF batch directamente
+ */
+export const downloadBatchLabels = (filename) => {
+  const url = getBatchLabelDownloadUrl(filename);
+  window.open(url, '_blank');
+};
+
+// =====================================================
+// BULK UPLOAD API SERVICES
+// =====================================================
+
+/**
+ * Descargar plantilla Excel para carga masiva
+ */
+export const downloadExcelTemplate = () => {
+  const baseUrl = API_URL || window.location.origin;
+  const url = `${baseUrl}/api/assets/bulk/download-template`;
+  window.open(url, '_blank');
+};
+
+/**
+ * Subir archivo Excel para carga masiva de activos
+ * @param {File} file - Archivo Excel
+ * @returns {Promise} - Resultados de la carga masiva
+ */
+export const uploadBulkAssets = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await api.post('/api/assets/bulk/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  
+  return response.data;
+};
+
 export default api;

@@ -21,6 +21,28 @@ const {
   generatePDFLabel,
   deletePDFLabel
 } = require('../utils/pdfLabelGenerator');
+const {
+  generateBatchPDF
+} = require('../utils/batchPdfGenerator');
+const multer = require('multer');
+const XLSX = require('xlsx');
+const path = require('path');
+const fs = require('fs');
+
+// Configurar multer para subida de archivos
+const upload = multer({
+  dest: path.join(__dirname, '../../../public/uploads/'),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'));
+    }
+  }
+});
 
 // =====================================================
 // FUNCIONES AUXILIARES
@@ -548,6 +570,243 @@ router.get('/:serial_number/download-label', asyncHandler(async (req, res) => {
       throw new ApiError(500, 'Error al descargar el archivo de etiqueta');
     }
   });
+}));
+
+/**
+ * POST /api/assets/batch/generate-labels
+ * Generar PDF con múltiples etiquetas para impresión por lotes
+ * Body: { serialNumbers: ["ABC1234", "DEF5678", ...] }
+ */
+router.post('/batch/generate-labels', asyncHandler(async (req, res) => {
+  const { serialNumbers } = req.body;
+
+  if (!serialNumbers || !Array.isArray(serialNumbers) || serialNumbers.length === 0) {
+    throw new ApiError(400, 'Se requiere un array de serial numbers');
+  }
+
+  if (serialNumbers.length > 100) {
+    throw new ApiError(400, 'El límite máximo es 100 etiquetas por batch');
+  }
+
+  dbLogger.logQuery('BATCH GENERATE LABELS', 'assets', `count=${serialNumbers.length}`);
+
+  // Obtener todos los activos
+  const placeholders = serialNumbers.map((_, i) => `$${i + 1}`).join(',');
+  const result = await db.query(
+    `SELECT * FROM assets WHERE serial_number IN (${placeholders})`,
+    serialNumbers
+  );
+
+  if (result.rows.length === 0) {
+    throw new ApiError(404, 'No se encontraron activos con los números de serie proporcionados');
+  }
+
+  // Verificar QR codes y generar los faltantes
+  for (const asset of result.rows) {
+    if (!asset.qr_code_path) {
+      const qrResult = await generateQRCode(asset.serial_number);
+      await db.query(
+        'UPDATE assets SET qr_code_path = $1 WHERE serial_number = $2',
+        [qrResult.filePath, asset.serial_number]
+      );
+      asset.qr_code_path = qrResult.filePath;
+    }
+  }
+
+  // Generar PDF batch
+  const batchId = `${result.rows.length}labels`;
+  const batchResult = await generateBatchPDF(result.rows, batchId);
+
+  dbLogger.logSuccess('BATCH GENERATE LABELS', { count: result.rows.length });
+
+  res.json({
+    success: true,
+    message: `PDF con ${result.rows.length} etiquetas generado exitosamente`,
+    batch: {
+      filePath: batchResult.filePath,
+      fileName: batchResult.fileName,
+      labelCount: batchResult.labelCount,
+      pageCount: batchResult.pageCount,
+      downloadUrl: `/api/assets/batch/download-labels/${batchResult.fileName}`
+    }
+  });
+}));
+
+/**
+ * GET /api/assets/batch/download-labels/:filename
+ * Descargar archivo PDF batch
+ * Params: filename
+ */
+router.get('/batch/download-labels/:filename', asyncHandler(async (req, res) => {
+  const { filename } = req.params;
+
+  // Validar nombre de archivo para evitar path traversal
+  if (!/^batch_[a-zA-Z0-9_]+\.pdf$/.test(filename)) {
+    throw new ApiError(400, 'Nombre de archivo inválido');
+  }
+
+  const { BATCH_LABELS_DIR } = require('../utils/batchPdfGenerator');
+  const path = require('path');
+  const filePath = path.join(BATCH_LABELS_DIR, filename);
+
+  // Verificar que el archivo existe
+  try {
+    await require('fs').promises.access(filePath);
+  } catch (error) {
+    throw new ApiError(404, 'Archivo no encontrado');
+  }
+
+  // Enviar archivo para descarga
+  res.download(filePath, filename, (err) => {
+    if (err) {
+      console.error('Error al descargar PDF batch:', err);
+      throw new ApiError(500, 'Error al descargar el archivo');
+    }
+  });
+}));
+
+// =====================================================
+// CARGA MASIVA DE ACTIVOS
+// =====================================================
+
+/**
+ * GET /api/assets/bulk/download-template
+ * Descargar plantilla Excel para carga masiva
+ */
+router.get('/bulk/download-template', asyncHandler(async (req, res) => {
+  const templatePath = path.join(__dirname, '../../../public/templates/plantilla_activos.xlsx');
+  
+  // Verificar que la plantilla existe
+  try {
+    await fs.promises.access(templatePath);
+  } catch (error) {
+    throw new ApiError(404, 'Plantilla no encontrada');
+  }
+
+  res.download(templatePath, 'plantilla_activos.xlsx', (err) => {
+    if (err) {
+      console.error('Error al descargar plantilla:', err);
+      throw new ApiError(500, 'Error al descargar la plantilla');
+    }
+  });
+}));
+
+/**
+ * POST /api/assets/bulk/upload
+ * Subir archivo Excel para carga masiva de activos
+ */
+router.post('/bulk/upload', upload.single('file'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'No se proporcionó ningún archivo');
+  }
+
+  const filePath = req.file.path;
+  
+  try {
+    // Leer archivo Excel
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Convertir a JSON
+    const data = XLSX.utils.sheet_to_json(worksheet);
+    
+    if (data.length === 0) {
+      throw new ApiError(400, 'El archivo está vacío');
+    }
+
+    dbLogger.logQuery('BULK UPLOAD', 'assets', `count=${data.length}`);
+
+    const results = {
+      total: data.length,
+      created: 0,
+      errors: []
+    };
+
+    // Procesar cada fila
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const rowNumber = i + 2; // +2 porque Excel empieza en 1 y tiene header
+
+      try {
+        // Validar campos requeridos
+        if (!row['Nombre']) {
+          throw new Error('Nombre es requerido');
+        }
+        if (!row['Ubicación'] && !row['Ubicacion']) {
+          throw new Error('Ubicación es requerida');
+        }
+        if (!row['Responsable']) {
+          throw new Error('Responsable es requerido');
+        }
+
+        // Generar número de serie único
+        const serialNumber = await generateSerialNumber();
+
+        // Generar QR Code
+        const qrResult = await generateQRCode(serialNumber);
+
+        // Insertar activo
+        const result = await db.query(
+          `INSERT INTO assets (
+            serial_number, name, description, responsible, location, qr_code_path, category, value, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+          RETURNING *`,
+          [
+            serialNumber,
+            row['Nombre'] || null,
+            row['Descripción'] || row['Descripcion'] || null,
+            row['Responsable'] || null,
+            row['Ubicación'] || row['Ubicacion'] || null,
+            qrResult.filePath,
+            row['Categoría'] || row['Categoria'] || null,
+            row['Valor'] ? parseFloat(row['Valor']) : null,
+            row['Estado'] || 'Activo'
+          ]
+        );
+
+        results.created++;
+        console.log(`✓ Activo creado: ${serialNumber} - ${row['Nombre']}`);
+
+      } catch (error) {
+        console.error(`✗ Error en fila ${rowNumber}:`, error.message);
+        results.errors.push({
+          row: rowNumber,
+          data: row['Nombre'] || 'Sin nombre',
+          error: error.message
+        });
+      }
+    }
+
+    // Eliminar archivo temporal
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (unlinkError) {
+      console.warn('No se pudo eliminar archivo temporal:', unlinkError.message);
+    }
+
+    dbLogger.logSuccess('BULK UPLOAD', { 
+      total: results.total, 
+      created: results.created, 
+      errors: results.errors.length 
+    });
+
+    res.json({
+      success: true,
+      message: `Proceso completado: ${results.created} de ${results.total} activos creados`,
+      results
+    });
+
+  } catch (error) {
+    // Eliminar archivo temporal en caso de error
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (unlinkError) {
+      console.warn('No se pudo eliminar archivo temporal:', unlinkError.message);
+    }
+
+    throw error;
+  }
 }));
 
 module.exports = router;

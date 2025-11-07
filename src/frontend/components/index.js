@@ -9,6 +9,7 @@ export { default as LocationsManager } from './LocationsManager';
 export { default as ResponsiblesManager } from './ResponsiblesManager';
 export { default as AssetNamesManager } from './AssetNamesManager';
 export { default as DashboardNew } from './DashboardNew';
+export { default as BatchLabelGenerator } from './BatchLabelGenerator';
 
 // Componentes legacy (mantener por compatibilidad)
 export { default as Dashboard } from './Dashboard';

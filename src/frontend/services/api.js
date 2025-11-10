@@ -476,4 +476,66 @@ export const uploadBulkAssets = async (file) => {
   return response.data;
 };
 
+// =====================================================
+// LOCATIONS BULK UPLOAD API SERVICES
+// =====================================================
+
+/**
+ * Descargar plantilla Excel para carga masiva de ubicaciones
+ */
+export const downloadLocationsTemplate = () => {
+  const baseUrl = API_URL || window.location.origin;
+  const url = `${baseUrl}/api/locations/bulk/download-template`;
+  window.open(url, '_blank');
+};
+
+/**
+ * Subir archivo Excel para carga masiva de ubicaciones
+ * @param {File} file - Archivo Excel
+ * @returns {Promise} - Resultados de la carga masiva
+ */
+export const uploadBulkLocations = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await api.post('/api/locations/bulk/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  
+  return response.data;
+};
+
+// =====================================================
+// RESPONSIBLES BULK UPLOAD API SERVICES
+// =====================================================
+
+/**
+ * Descargar plantilla Excel para carga masiva de responsables
+ */
+export const downloadResponsiblesTemplate = () => {
+  const baseUrl = API_URL || window.location.origin;
+  const url = `${baseUrl}/api/responsibles/bulk/download-template`;
+  window.open(url, '_blank');
+};
+
+/**
+ * Subir archivo Excel para carga masiva de responsables
+ * @param {File} file - Archivo Excel
+ * @returns {Promise} - Resultados de la carga masiva
+ */
+export const uploadBulkResponsibles = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await api.post('/api/responsibles/bulk/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  
+  return response.data;
+};
+
 export default api;

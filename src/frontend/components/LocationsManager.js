@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Plus, Edit2, Trash2, X, Save } from 'lucide-react';
-import { getLocations, createLocation, updateLocation, deleteLocation } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Plus, Edit2, Trash2, X, Save, Upload, Download } from 'lucide-react';
+import { getLocations, createLocation, updateLocation, deleteLocation, downloadLocationsTemplate, uploadBulkLocations } from '../services/api';
 import './ConfigManager.css';
 
 function LocationsManager({ onBack }) {
@@ -9,6 +9,8 @@ function LocationsManager({ onBack }) {
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadLocations();
@@ -81,6 +83,66 @@ function LocationsManager({ onBack }) {
     setShowForm(false);
   };
 
+  const handleDownloadTemplate = () => {
+    try {
+      downloadLocationsTemplate();
+      alert('✅ Descargando plantilla Excel...');
+    } catch (error) {
+      console.error('Error al descargar plantilla:', error);
+      alert('Error al descargar la plantilla');
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleBulkUpload(file);
+    }
+  };
+
+  const handleBulkUpload = async (file) => {
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      alert('Por favor selecciona un archivo Excel (.xlsx o .xls)');
+      return;
+    }
+
+    if (!window.confirm(`¿Procesar el archivo "${file.name}" para cargar ubicaciones?`)) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const result = await uploadBulkLocations(file);
+      
+      let message = `✅ Proceso completado\n\n`;
+      message += `📊 Total de filas: ${result.results.total}\n`;
+      message += `✓ Ubicaciones creadas: ${result.results.created}\n`;
+      message += `⊘ Ya existían: ${result.results.skipped}\n`;
+      
+      if (result.results.errors.length > 0) {
+        message += `\n❌ Errores encontrados: ${result.results.errors.length}\n`;
+        result.results.errors.slice(0, 5).forEach(err => {
+          message += `  - Fila ${err.row}: ${err.error}\n`;
+        });
+        if (result.results.errors.length > 5) {
+          message += `  ... y ${result.results.errors.length - 5} errores más`;
+        }
+      }
+      
+      alert(message);
+      loadLocations();
+      
+    } catch (error) {
+      console.error('Error al procesar archivo:', error);
+      alert(error.response?.data?.message || 'Error al procesar el archivo');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="config-manager">
@@ -109,6 +171,47 @@ function LocationsManager({ onBack }) {
           <Plus size={20} />
           Nueva Ubicación
         </button>
+      </div>
+
+      {/* Sección de carga masiva */}
+      <div className="bulk-upload-section" style={{ 
+        backgroundColor: '#e0f2fe', 
+        padding: '20px', 
+        borderRadius: '8px', 
+        marginBottom: '20px' 
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#0369a1' }}>
+          📦 Carga Masiva de Ubicaciones
+        </h3>
+        <p style={{ marginBottom: '15px', fontSize: '14px' }}>
+          Importa múltiples ubicaciones desde un archivo Excel
+        </p>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            className="btn-success"
+            onClick={handleDownloadTemplate}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Download size={18} />
+            Descargar Plantilla
+          </button>
+          <button
+            className="btn-primary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Upload size={18} />
+            {uploading ? 'Procesando...' : 'Subir Excel'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+        </div>
       </div>
 
       {showForm && (

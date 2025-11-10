@@ -746,14 +746,21 @@ router.post('/bulk/upload', upload.single('file'), asyncHandler(async (req, res)
         // Generar QR Code
         const qrResult = await generateQRCode(serialNumber);
 
+        // Generar asset_id con formato: AST-YYYY-NNNN
+        const year = new Date().getFullYear();
+        const maxIdResult = await db.query('SELECT COALESCE(MAX(id), 0) as max_id FROM assets');
+        const nextId = parseInt(maxIdResult.rows[0].max_id) + 1;
+        const asset_id = `AST-${year}-${String(nextId).padStart(4, '0')}`;
+
         // Insertar activo
         const result = await db.query(
           `INSERT INTO assets (
-            serial_number, name, description, responsible, location, qr_code_path, category, value, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+            serial_number, asset_id, name, description, responsible, location, qr_code_path, category, value, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
           RETURNING *`,
           [
             serialNumber,
+            asset_id,
             row['Nombre'] || null,
             row['Observación o nota'] || row['Observacion o nota'] || row['Observación'] || row['Observacion'] || null,
             row['Responsable'] || null,
@@ -766,7 +773,7 @@ router.post('/bulk/upload', upload.single('file'), asyncHandler(async (req, res)
         );
 
         results.created++;
-        console.log(`✓ Activo creado: ${serialNumber} - ${row['Nombre']}`);
+        console.log(`✓ Activo creado: ${serialNumber} (${asset_id}) - ${row['Nombre']}`);
 
       } catch (error) {
         console.error(`✗ Error en fila ${rowNumber}:`, error.message);

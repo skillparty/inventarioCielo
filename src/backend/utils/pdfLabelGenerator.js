@@ -10,7 +10,7 @@ const { fileLogger } = require('../middleware/logger');
 
 // Directorio donde se guardarán las etiquetas PDF
 const LABELS_DIR = path.join(__dirname, '../../../public/labels');
-const LOGO_PATH = path.join(__dirname, '../../../public/assets/logo-cielo.png');
+const LOGO_PATH = path.join(__dirname, '../../../public/logo-cielo.jpeg');
 
 // Conversión de mm a puntos PDF (1mm = 2.83465 puntos)
 const mmToPts = (mm) => mm * 2.83465;
@@ -79,37 +79,93 @@ const generatePDFLabel = async (asset) => {
        .lineWidth(0.5)
        .stroke('#666666');
 
-    // --- TÍTULO SUPERIOR ---
+    // --- NOMBRE DEL ACTIVO (título principal) ---
+    const assetName = asset.name || 'SIN NOMBRE';
     doc.fillColor('#000000')
-       .fontSize(6)
+       .fontSize(8)
        .font('Helvetica-Bold')
-       .text('INVENTARIO_CIELO', margin, mmToPts(2), {
+       .text(assetName.toUpperCase(), margin, mmToPts(1), {
+         width: mmToPts(38),
+         align: 'center',
+         lineBreak: true
+       });
+
+    // --- FECHA ---
+    const fecha = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
+
+    doc.fontSize(6)
+       .font('Helvetica-Bold')
+       .fillColor('#000000')
+       .text(`Fecha: ${fecha}`, margin, mmToPts(9), {
          width: mmToPts(38),
          align: 'center'
        });
 
-    // --- TÍTULO PRINCIPAL ---
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .text('DOTACION CIELO', margin, mmToPts(6), {
-         width: mmToPts(38),
-         align: 'center'
+    // --- ENCARGADO (izquierda) ---
+    doc.fontSize(4.5)
+       .font('Helvetica')
+       .text('ENCARGADO:', mmToPts(1), mmToPts(11), {
+         width: mmToPts(16),
+         align: 'left'
        });
 
-    // --- LOGOS ---
+    doc.fontSize(5)
+       .font('Helvetica-Bold')
+       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(13), {
+         width: mmToPts(16),
+         align: 'left',
+         lineBreak: true
+       });
+
+    // --- CÓDIGO QR (derecha) - Tamaño grande ---
+    try {
+      // Verificar si el QR existe
+      await fs.promises.access(qrCodePath);
+      doc.image(qrCodePath, mmToPts(18), mmToPts(11), {
+        width: mmToPts(20),
+        height: mmToPts(20),
+        fit: [mmToPts(20), mmToPts(20)]
+      });
+    } catch (qrError) {
+      console.warn('⚠️ QR Code no encontrado:', qrCodePath);
+      // Dibujar un cuadrado placeholder
+      doc.rect(mmToPts(18), mmToPts(11), mmToPts(20), mmToPts(20))
+         .lineWidth(1)
+         .stroke('#CCCCCC');
+      
+      doc.fontSize(8)
+         .font('Helvetica')
+         .text('QR N/D', mmToPts(18), mmToPts(19), {
+           width: mmToPts(20),
+           align: 'center'
+         });
+    }
+
+    // --- UBICACION (izquierda, debajo del encargado) ---
+    doc.fontSize(4.5)
+       .font('Helvetica')
+        .text('UBICACIÓN:', mmToPts(1), mmToPts(17), {
+         width: mmToPts(16),
+         align: 'left'
+       });
+
+    doc.fontSize(5)
+       .font('Helvetica-Bold')
+       .text(asset.location || 'N/A', mmToPts(1), mmToPts(19), {
+         width: mmToPts(16),
+         align: 'left',
+         lineBreak: true
+       });
+
+    // --- LOGO (debajo de ubicación, izquierda) ---
     const hasLogo = await logoExists();
     if (hasLogo) {
       try {
-        // Logo izquierdo
-        doc.image(LOGO_PATH, mmToPts(2), mmToPts(10), {
-          width: mmToPts(8),
-          height: mmToPts(8),
-          fit: [mmToPts(8), mmToPts(8)],
-          align: 'center'
-        });
-
-        // Logo derecho
-        doc.image(LOGO_PATH, mmToPts(30), mmToPts(10), {
+        doc.image(LOGO_PATH, mmToPts(4), mmToPts(23), {
           width: mmToPts(8),
           height: mmToPts(8),
           fit: [mmToPts(8), mmToPts(8)],
@@ -120,85 +176,13 @@ const generatePDFLabel = async (asset) => {
       }
     }
 
-    // --- FECHA ---
-    const fecha = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
-
-    doc.fontSize(6)
-       .font('Helvetica')
+    // --- SERIAL NUMBER (inferior - centrado) ---
+    doc.fontSize(8)
+       .font('Helvetica-Bold')
        .fillColor('#000000')
-       .text(`Fecha: ${fecha}`, margin, mmToPts(12), {
+       .text(asset.serial_number, margin, mmToPts(35), {
          width: mmToPts(38),
          align: 'center'
-       });
-
-    // --- ENCARGADO (izquierda) ---
-    doc.fontSize(4)
-       .font('Helvetica')
-       .text('ENCARGADO:', mmToPts(1), mmToPts(20), {
-         width: mmToPts(10),
-         align: 'left'
-       });
-
-    doc.fontSize(6)
-       .font('Helvetica-Bold')
-       .text(asset.responsible || 'N/A', mmToPts(1), mmToPts(23.5), {
-         width: mmToPts(10),
-         align: 'left',
-         lineBreak: true
-       });
-
-    // --- CÓDIGO QR (centro) ---
-    try {
-      // Verificar si el QR existe
-      await fs.promises.access(qrCodePath);
-      doc.image(qrCodePath, mmToPts(11), mmToPts(19), {
-        width: mmToPts(18),
-        height: mmToPts(18),
-        fit: [mmToPts(18), mmToPts(18)]
-      });
-    } catch (qrError) {
-      console.warn('⚠️ QR Code no encontrado:', qrCodePath);
-      // Dibujar un cuadrado placeholder
-      doc.rect(mmToPts(11), mmToPts(19), mmToPts(18), mmToPts(18))
-         .lineWidth(1)
-         .stroke('#CCCCCC');
-      
-      doc.fontSize(7)
-         .font('Helvetica')
-         .text('QR N/D', mmToPts(11), mmToPts(26), {
-           width: mmToPts(18),
-           align: 'center'
-         });
-    }
-
-    // --- UBICACIÓN (derecha) ---
-    doc.fontSize(4)
-       .font('Helvetica')
-       .text('UBICACIÓN', mmToPts(29), mmToPts(20), {
-         width: mmToPts(10),
-         align: 'right'
-       });
-
-    doc.fontSize(6)
-       .font('Helvetica-Bold')
-       .text(asset.location || 'N/A', mmToPts(29), mmToPts(22.5), {
-         width: mmToPts(10),
-         align: 'right',
-         lineBreak: true
-       });
-
-    // --- SERIAL NUMBER (inferior) ---
-    doc.fontSize(7)
-       .font('Helvetica-Bold')
-       .fillColor('#000000')
-       .text(asset.serial_number, margin, mmToPts(36), {
-         width: mmToPts(38),
-         align: 'center',
-         lineBreak: false
        });
 
     // Finalizar el PDF

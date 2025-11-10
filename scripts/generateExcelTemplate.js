@@ -10,30 +10,30 @@ const fs = require('fs');
 const templateData = [
   {
     'Nombre': 'Laptop Dell Latitude 5420',
-    'Descripción': 'Laptop corporativa Intel i7 16GB RAM',
+    'Categoría': 'Equipo de Cómputo',
+    'Estado': 'Activo',
     'Responsable': 'Juan Pérez',
     'Ubicación': 'Oficina Principal',
-    'Categoría': 'Equipo de Cómputo',
-    'Valor': '25000',
-    'Estado': 'Activo'
+    'Observación o nota': 'Intel i7 16GB RAM, pantalla 14 pulgadas',
+    'Valor': '25000'
   },
   {
     'Nombre': 'Monitor LG 27"',
-    'Descripción': 'Monitor LED Full HD',
+    'Categoría': 'Monitores',
+    'Estado': 'Activo',
     'Responsable': 'María García',
     'Ubicación': 'Sala de Juntas',
-    'Categoría': 'Monitores',
-    'Valor': '5500',
-    'Estado': 'Activo'
+    'Observación o nota': 'Monitor LED Full HD 1920x1080',
+    'Valor': '5500'
   },
   {
     'Nombre': 'Teclado Logitech MX Keys',
-    'Descripción': 'Teclado inalámbrico mecánico',
+    'Categoría': 'Periféricos',
+    'Estado': 'Activo',
     'Responsable': 'Carlos López',
     'Ubicación': 'Área de Desarrollo',
-    'Categoría': 'Periféricos',
-    'Valor': '2500',
-    'Estado': 'Activo'
+    'Observación o nota': 'Teclado inalámbrico mecánico retroiluminado',
+    'Valor': '2500'
   }
 ];
 
@@ -45,13 +45,13 @@ const worksheet = XLSX.utils.json_to_sheet(templateData);
 
 // Configurar ancho de columnas
 worksheet['!cols'] = [
-  { wch: 30 }, // Nombre
-  { wch: 40 }, // Descripción
+  { wch: 35 }, // Nombre
+  { wch: 20 }, // Categoría
+  { wch: 12 }, // Estado
   { wch: 25 }, // Responsable
   { wch: 25 }, // Ubicación
-  { wch: 20 }, // Categoría
-  { wch: 12 }, // Valor
-  { wch: 10 }  // Estado
+  { wch: 50 }, // Observación o nota
+  { wch: 12 }  // Valor
 ];
 
 // Agregar hoja al libro
@@ -72,6 +72,7 @@ console.log('');
 console.log('📋 Instrucciones de uso:');
 console.log('1. Descarga la plantilla desde el sistema');
 console.log('2. Llena los datos de tus activos (puedes eliminar las filas de ejemplo)');
-console.log('3. Campos requeridos: Nombre, Ubicación, Responsable');
-console.log('4. El número de serie se generará automáticamente');
-console.log('5. Sube el archivo completado en el sistema');
+console.log('3. Campos requeridos: Nombre, Responsable, Ubicación');
+console.log('4. Campos opcionales: Categoría, Estado, Observación o nota, Valor');
+console.log('5. El número de serie se generará automáticamente');
+console.log('6. Sube el archivo completado en el sistema');

@@ -755,7 +755,7 @@ router.post('/bulk/upload', upload.single('file'), asyncHandler(async (req, res)
           [
             serialNumber,
             row['Nombre'] || null,
-            row['Descripción'] || row['Descripcion'] || null,
+            row['Observación o nota'] || row['Observacion o nota'] || row['Observación'] || row['Observacion'] || null,
             row['Responsable'] || null,
             row['Ubicación'] || row['Ubicacion'] || null,
             qrResult.filePath,

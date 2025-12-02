@@ -146,9 +146,19 @@ function ActivoCard({ activo, onEdit }) {
     try {
       console.log('🖨️ Imprimiendo etiqueta PDF para:', activo.serial_number);
       
-      // Construir URL del PDF
-      const API_URL = process.env.REACT_APP_API_URL || 'https://localhost:5001';
+      // Construir URL del PDF - detectar automáticamente si estamos en red local
+      let API_URL;
+      if (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim() !== '') {
+        API_URL = process.env.REACT_APP_API_URL;
+      } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        API_URL = 'https://localhost:5001';
+      } else {
+        // Si accedemos desde la red (otra PC o celular), usar la IP del servidor
+        API_URL = `https://${window.location.hostname}:5001`;
+      }
+      
       const pdfUrl = `${API_URL}/api/assets/${activo.serial_number}/download-label`;
+      console.log('📄 URL del PDF:', pdfUrl);
       
       // Abrir PDF en nueva ventana
       const printWindow = window.open(pdfUrl, '_blank');
@@ -162,7 +172,7 @@ function ActivoCard({ activo, onEdit }) {
         alert('Por favor, permite las ventanas emergentes para imprimir.');
       }
       
-      console.log('✅ Ventana de impresión abierta');
+      console.log('✅ Ventana de impresión abirada');
     } catch (error) {
       console.error('🔴 Error al imprimir:', error);
       alert('Error al imprimir: ' + (error.message || error.toString()));

@@ -455,7 +455,15 @@ export const downloadBatchLabels = (filename) => {
 export const downloadExcelTemplate = () => {
   const baseUrl = API_URL || window.location.origin;
   const url = `${baseUrl}/api/assets/bulk/download-template`;
-  window.open(url, '_blank');
+  
+  // Crear enlace temporal y forzar descarga
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'plantilla_activos.xlsx';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 /**
@@ -486,7 +494,15 @@ export const uploadBulkAssets = async (file) => {
 export const downloadLocationsTemplate = () => {
   const baseUrl = API_URL || window.location.origin;
   const url = `${baseUrl}/api/locations/bulk/download-template`;
-  window.open(url, '_blank');
+  
+  // Crear enlace temporal y forzar descarga
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'plantilla_ubicaciones.xlsx';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 /**
@@ -517,7 +533,15 @@ export const uploadBulkLocations = async (file) => {
 export const downloadResponsiblesTemplate = () => {
   const baseUrl = API_URL || window.location.origin;
   const url = `${baseUrl}/api/responsibles/bulk/download-template`;
-  window.open(url, '_blank');
+  
+  // Crear enlace temporal y forzar descarga
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'plantilla_responsables.xlsx';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 /**

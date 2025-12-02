@@ -563,11 +563,15 @@ router.get('/:serial_number/download-label', asyncHandler(async (req, res) => {
   // Generar la etiqueta PDF si no existe
   const labelResult = await generatePDFLabel(asset);
 
-  // Enviar archivo para descarga
-  res.download(labelResult.fullPath, labelResult.fileName, (err) => {
+  // Enviar archivo para visualización (se abre en el visor de PDF del sistema)
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${labelResult.fileName}"`);
+  res.sendFile(labelResult.fullPath, (err) => {
     if (err) {
-      console.error('Error al descargar etiqueta:', err);
-      throw new ApiError(500, 'Error al descargar el archivo de etiqueta');
+      console.error('Error al enviar etiqueta:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Error al enviar el archivo de etiqueta' });
+      }
     }
   });
 }));
